@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "CareSync Pro",
+    "slug": "frontend",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "frontend",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.emergent.admincompanion.pz05nc",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Photographier tickets et compteurs",
+        "NSPhotoLibraryUsageDescription": "Choisir des photos de justificatifs"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0F766E"
+      },
+      "package": "com.emergent.admincompanion.pz05nc",
+      "permissions": ["android.permission.CAMERA", "android.permission.READ_MEDIA_IMAGES"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-image.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0F766E"
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Photographier tickets et compteurs"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choisir des photos de justificatifs"
+        }
+      ],
+      "expo-notifications"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

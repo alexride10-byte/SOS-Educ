@@ -1,0 +1,148 @@
+{
+  "app_name": "CareSync Pro",
+  "personality": "1 iOS-Native Clean (adapted for Field Utility)",
+  "personality_one_liner": "An extremely clear, highly tactile, and un-distracting utility tool designed to help caregivers log data in seconds and get back to the kids.",
+  "color": {
+    "surface": "#F9FAFB",
+    "onSurface": "#111827",
+    "surfaceSecondary": "#FFFFFF",
+    "onSurfaceSecondary": "#1F2937",
+    "surfaceTertiary": "#F3F4F6",
+    "onSurfaceTertiary": "#374151",
+    "surfaceInverse": "#1F2937",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#0F766E",
+    "brandPrimary": "#0F766E",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#CCFBF1",
+    "onBrandSecondary": "#0F766E",
+    "brandTertiary": "#E2E8F0",
+    "onBrandTertiary": "#334155",
+    "success": "#166534",
+    "onSuccess": "#FFFFFF",
+    "warning": "#B45309",
+    "onWarning": "#FFFFFF",
+    "error": "#B91C1C",
+    "onError": "#FFFFFF",
+    "info": "#0369A1",
+    "onInfo": "#FFFFFF",
+    "border": "#E5E7EB",
+    "borderStrong": "#9CA3AF",
+    "divider": "#F3F4F6",
+    "muted": "#6B7280",
+    "onBrand": "#FFFFFF"
+  },
+  "typography": {
+    "displayFontFamily": "Plus Jakarta Sans",
+    "textFontFamily": "Plus Jakarta Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous spacing. Emphasize large touch targets (minimum 56pt height for any interactive row/button). Group content clearly with md/lg padding.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "1",
+  "navigation": "bottom_tabs",
+  "icon_set": "Ionicons",
+  "glassmorphism": {
+    "enabled": "true",
+    "do's": [
+      "Use for sticky bottom CTA containers that overlay lists",
+      "Use for bottom tab bar background",
+      "Use for bottom sheet headers/handles"
+    ],
+    "dont's": [
+      "Avoid on form inputs or standard list cards",
+      "Avoid where information density requires high contrast (like odometer/OCR review)"
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home Dashboard",
+      "purpose": "A high-level glance at the day with massive, tap-friendly entry points into the 3 core flows.",
+      "states": {
+        "loading": "Skeleton cards representing the 3 modules.",
+        "empty": "No immediate tasks today. 'Everything is up to date' illustration + big primary action to jump into logging.",
+        "error": "Failed to load summary. Offline mode indicator."
+      },
+      "layout": "Header with 'Bonjour' and date. ScrollView containing a 'Résumé du jour' card (upcoming appointment, pending tasks). Below that, a 1-column grid of 3 oversized cards for Comptabilité, Agenda, and Véhicule. Each card should have a tinted icon container, a bold title, and a subtitle describing its purpose."
+    },
+    {
+      "name": "Comptabilité (Accounting)",
+      "purpose": "List 15-day sessions and scan receipts with OCR.",
+      "states": {
+        "loading": "Spinner centered on screen.",
+        "empty": "Illustration of a clean receipt. 'Aucune dépense pour cette session'.",
+        "error": "Failed to run OCR. Retry manual entry button."
+      },
+      "layout": "Sticky header with current 15-day session toggle. Stacked list of scanned expenses. Floating Action Button (FAB) anchored bottom right for Camera/Scan. When scanned, a Bottom Sheet pops up showing the OCR extracted data (date, merchant, amount) in large, easily editable form fields for rapid verification."
+    },
+    {
+      "name": "Agenda",
+      "purpose": "View daily schedule with fictitious children, calc departure times, and set local notifications.",
+      "states": {
+        "loading": "Skeleton list of time blocks.",
+        "empty": "Calendar illustration. 'Aucun rendez-vous aujourd'hui.'",
+        "error": "Error loading schedule."
+      },
+      "layout": "Top horizontal date selector. Stacked chronological list of appointments. Each card shows time, child's initial (in a tinted circle), location, and status badge (prévu, effectué). Tapping opens a Bottom Sheet with 'Heure de départ recommandée' calculator and 'Commentaires post-RDV' input."
+    },
+    {
+      "name": "Véhicule (Vehicle)",
+      "purpose": "Log trips and odometer readings using camera OCR.",
+      "states": {
+        "loading": "Spinner for trip processing.",
+        "empty": "Minimal speedometer photo backdrop. 'Aucun trajet enregistré'.",
+        "error": "OCR failed, manual entry required."
+      },
+      "layout": "List of trips grouped by 15-day sessions. Auto-calculates total km. Primary action is a large 'Nouveau Trajet' button sticky at bottom (glassmorphism bg). Leads to a form pre-filled based on the last session, with an option to snap a photo of the odometer for automatic reading."
+    }
+  ],
+  "images": {
+    "agenda_empty_state": {
+      "url": "https://images.unsplash.com/photo-1578625155481-7bc40a6481b6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwxfHxlbXB0eSUyMHN0YXRlJTIwY2FsZW5kYXIlMjBpbGx1c3RyYXRpb258ZW58MHx8fHwxNzkxMjk0NDk4fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "white minimal calendar for agenda empty state"
+    },
+    "vehicle_empty_state": {
+      "url": "https://images.unsplash.com/photo-1596199680790-5ea70f4f63af?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxkYXNoYm9hcmQlMjBzcGVlZG9tZXRlciUyMG1pbmltYWx8ZW58MHx8fHwxNzkxMjk0NTAzfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "minimal dashboard speedometer for vehicle empty state"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strict NO BLUE rule exception applied: The user specifically requested 'bleu/vert' (Blue/Green) in the prompt, so a professional Teal/Slate color palette was selected as an accessible, non-generic alternative to typical SaaS blues.",
+    "Enforce large touch targets: This is an on-the-go utility app. All interactive elements (list rows, CTA buttons) MUST have a minimum height of 56pt.",
+    "Form accessibility: Keep manual input to an absolute minimum. Use bottom sheets for quick actions (editing OCR output, adding post-RDV comments) instead of navigating to separate screens.",
+    "Hierarchy: Implement left-aligned layouts with robust padding. Avoid centered content except for empty states.",
+    "Visual placeholders: Use the provided Unsplash images for empty states, ensuring a gradient scrim (top to bottom fade) is applied behind overlaid text as per the image/texture rule."
+  ]
+}
