@@ -49,8 +49,23 @@ plus tard, il suffit de wrapper ces repos sans toucher aux ecrans.
 - Theme clair/sombre avec bouton (persiste), calendrier mensuel colore dans l'Agenda
 - Tests: backend 4/4, frontend 100% (iteration 1)
 
+## Evolution v2 (oct. 2026)
+- Module vehicule/trajets supprime (ecran, onglet, carte d'accueil, donnees locales, endpoint /api/ocr/odometer)
+- Categories : Alimentation, Entretien de la maison, Animation / sorties, Divers ; null = "A classer" (exclu de la repartition)
+- Budget initial par session + tableau de bord sombre (anneau, camembert, legende, etats vides) - src/lib/money.ts
+- Agenda : codes enfants A-E (couleurs personnalisables, lettre toujours affichee), rappels configurables (1 h, 30 min, depart, 5 min) avec fusion des doublons, explication du calcul de depart
+- Preparations (taches) liees ou non a un RDV, rappel "veille 18:00", section "A preparer" sur l'accueil
+- Photos copiees dans le dossier documents prive ; justificatifs integres en base64 dans le PDF
+- Migration locale v2 automatique (src/lib/migrate.ts)
+- Tests iteration 2 : backend 4/4, frontend 11/11
+
+## Points en attente
+- Audit "100 % hors ligne" realise ; le plan n'est pas encore valide. L'OCR envoie toujours la photo du ticket au serveur puis a OpenAI
+- Pas de gestion des droits : le budget est modifiable par toute personne utilisant le telephone
+- Donnees locales non chiffrees (AsyncStorage)
+
 ## Backlog
-- P1: export PDF des trajets, saisie date/heure via selecteurs natifs
+- P1: saisie date/heure via selecteurs natifs
 - P2: sync chiffree, verrouillage par code/biometrie, choix "suivre le systeme" pour le theme
 
 ## Lancement

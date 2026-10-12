@@ -2,6 +2,7 @@
 // Retourne une URI locale et le base64 (pour OCR).
 import * as ImagePicker from "expo-image-picker";
 import { Platform } from "react-native";
+import { Directory, File, Paths } from "expo-file-system";
 
 export interface PickedImage {
   uri: string;
@@ -9,11 +10,25 @@ export interface PickedImage {
   mimeType: string;
 }
 
+// Copie la photo du cache (purgeable par le systeme) vers le dossier documents prive de l'app.
+function persist(uri: string): string {
+  if (Platform.OS === "web") return uri;
+  try {
+    const dir = new Directory(Paths.document, "justificatifs");
+    if (!dir.exists) dir.create({ idempotent: true });
+    const dest = new File(dir, `photo-${Date.now()}.jpg`);
+    new File(uri).copySync(dest);
+    return dest.uri;
+  } catch {
+    return uri;
+  }
+}
+
 async function toPicked(res: ImagePicker.ImagePickerResult): Promise<PickedImage | null> {
   if (res.canceled || !res.assets?.length) return null;
   const a = res.assets[0];
   return {
-    uri: a.uri,
+    uri: persist(a.uri),
     base64: a.base64 ?? "",
     mimeType: a.mimeType ?? "image/jpeg",
   };

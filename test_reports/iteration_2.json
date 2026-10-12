@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 2 — Comprehensive testing of CareSync Pro v2 (2 modules: Compta + Agenda). Backend 4/4 pytest tests passed (health, OCR receipt JSON, OCR receipt data URI, OCR odometer removed=404). Frontend (mobile 390x844): all 11 review-request scenarios validated. Home shows only 2 module cards (Comptabilite, Agenda) + tab bar has only Accueil/Compta/Agenda; module-vehicule not rendered; /vehicule route returns Expo 'Unmatched Route' 404 page. Fresh-seed values confirmed: session-total 110,00 €, budget-initial 500,00 €, budget-remaining 390,00 €, budget-percent 22 %, classified-total 100,10 €, unclassified-info visible with 9,90 €, 4 legend rows match (42,30 / 26,40 / 18,50 / 12,90). Budget edit flow works: setting 100 shows 'Dépassement' 10,00 € and 110 %; empty input removes budget and shows define-budget-btn. Classifying exp-5 to cat-divers raises classified-total to 110,00 €, hides unclassified-info, and legend amounts sum to 110,00 €. New session via session-create-chip shows pie-empty + define-budget-btn + 0,00 € dépenses. New expense without category shows category-unconfirmed warning and persists as À classer (count 1→2). export-session-btn present on both sessions. Agenda: month-grid dots, child-legend open color-picker on legend-child-A → color-choice-EC4899 updates child-badge-A to rgb(236,72,153) across home/agenda and persists after reload. Event creation with child-B, time 15:00, travel 25, buffer 10 → departure-value '14:25' and departure-explain 'RDV 15:00 − 25 min de trajet − 10 min de marge = départ à 14:25'; reminder-m5 off by default; status 'annule' shows reminders-off-note. Tasks: segment-prep lists 4 tasks; add-task-fab → task-remind-eve sets reminder-date to day-before and reminder-time 18:00; save adds task (4→5). Home prep section pending count 3; task-check-* removes task from home (3→2). Theme toggle works; budget-dashboard background stays dark (rgb(11,18,32)) in both themes. One new RN Web deprecation warning observed: 'Image: style.resizeMode is deprecated. Please use props.resizeMode.' in addition to previously-reported shadow* props. No red screens, no API 500s.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "Image style.resizeMode", "issue": "RN Web deprecation warning: 'Image: style.resizeMode is deprecated. Please use props.resizeMode.' Move resizeMode from StyleSheet to the <Image resizeMode='...' /> prop. Grep for 'resizeMode:' in /app/frontend/src and /app/frontend/app."},
+      {"component": "StyleSheet shadow* props", "issue": "RN Web deprecation warning: 'shadow*' style props are deprecated, use 'boxShadow' (carried over from iteration_1). Non-blocking."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_backend_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Replace Image StyleSheet 'resizeMode: ...' with the <Image resizeMode='...' /> prop to silence RN 0.76+ Web warning.",
+    "Replace shadowColor/shadowOpacity/shadowRadius/shadowOffset with boxShadow across frontend to silence RN Web deprecation warning (carryover).",
+    "Nothing else to fix — all 11 review-request scenarios pass."
+  ],
+  "critical_code_review_comments": [
+    "server.py OCR amount parsing now uses try/except float cast — robust. category is correctly restricted via ALLOWED_CATEGORIES set to {alimentation, entretien, animation, divers}, with any other value coerced to null (perfect for 'À classer' handling).",
+    "/api/ocr/odometer endpoint fully removed from backend as expected for v2.",
+    "migrateV2 maps legacy categories (loisirs→animation, vetements/transport/sante/autre→divers) and removes legacy trips storage — one-shot migration guarded by KEYS.migratedV2 flag; implementation is correct and idempotent.",
+    "Child color picker is persisted via storage and applied via useTheme-aware hook (child-badge color on home, agenda event cards, calendar dots, legend chip all read from same source — verified by computed-style check after reload).",
+    "No MongoDB models used despite motor client being initialized — DB connection is unused; could remove to simplify. (carryover)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_backend_api.py (rewritten for v2: strict allowed-category set + OCR odometer 404 assertion)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "No new seed data created at code level. Browser localStorage was cleared once at start of UI run so migrateV2 + seed re-ran on first load, giving the demo state described in the review request. All test-created items (TEST Reunion event, TEST tache rappel veille, TEST sans cat expense) are left in-place in the preview browser context only; they do not persist to any backend DB and are isolated per browser context.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "App is a FR offline-first Expo app with 2 tabs (Compta, Agenda) + Home. All state in AsyncStorage, seeded on first launch, migrateV2 runs once at startup. Backend has only 2 endpoints (/api/, /api/ocr/receipt) using emergentintegrations LlmChat with gpt-5.6-terra vision; /api/ocr/odometer removed. Camera/notifications only work on native, not web — skip them on web. For Compta: use testIDs session-chip-sess-demo-1, session-create-chip, budget-dashboard, edit-budget-btn/define-budget-btn, budget-input, budget-save, budget-initial, session-total, budget-remaining, budget-percent, classified-total, unclassified-info, legend-{alimentation|entretien|animation|divers}, pie-empty, category-pie, add-expense-fab, expense-row-{id}, expense-save, expense-delete, cat-{alimentation|entretien|animation|divers}, category-unconfirmed, to-classify-{id}, export-session-btn. For Agenda: month-grid, month-prev/next, child-legend, legend-child-{A..E}, color-picker, color-choice-{HEX_NO_HASH}, child-badge-{A..E}, segment-{rdv|prep}, add-event-fab/add-task-fab, field-title, child-{A..E}, child-none, field-event-time, field-travel, field-buffer, departure-value, departure-explain, reminder-{m60|m30|start|m5}, status-{prevu|annule|effectue|reporte}, reminders-off-note, event-save/event-delete/event-form-close, task-title, task-event-{id|none}, task-remind-switch, task-remind-eve, task-reminder-date, task-reminder-time, task-save/task-delete, task-row-{id}, task-check-{id}. Home testIDs: home-hello, home-date, home-next-event, home-next-departure, home-to-verify, home-prep-section, module-comptabilite, module-agenda. Theme toggle: theme-toggle-btn. Note: each mcp_browser_automation invocation uses a fresh browser context, so localStorage does NOT persist across invocations — if you need to test persistence across reload, do it inside a single script.",
+  "rca_of_issue": "N/A — no bugs reproduced. All review-request assertions passed."
+}

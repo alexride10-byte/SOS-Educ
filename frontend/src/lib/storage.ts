@@ -2,13 +2,16 @@
 // Pensee pour etre remplacee plus tard par une sync chiffree sans toucher aux ecrans.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AgendaEvent, Expense, Session, Trip } from "@/src/types";
+import { AgendaEvent, Expense, Session, Task } from "@/src/types";
 
 const K = {
   sessions: "cs.sessions.v1",
   expenses: "cs.expenses.v1",
   events: "cs.events.v1",
-  trips: "cs.trips.v1",
+  tasks: "cs.tasks.v1",
+  childColors: "cs.childColors.v1",
+  migratedV2: "cs.migrated.v2",
+  legacyTrips: "cs.trips.v1",
   seeded: "cs.seeded.v1",
 };
 
@@ -71,19 +74,35 @@ export const eventsRepo = {
   },
 };
 
-export const tripsRepo = {
-  list: () => readList<Trip>(K.trips),
-  save: async (t: Trip) => {
-    const items = await readList<Trip>(K.trips);
+export const tasksRepo = {
+  list: () => readList<Task>(K.tasks),
+  save: async (t: Task) => {
+    const items = await readList<Task>(K.tasks);
     const idx = items.findIndex((x) => x.id === t.id);
     if (idx >= 0) items[idx] = t;
     else items.unshift(t);
-    await writeList(K.trips, items);
+    await writeList(K.tasks, items);
   },
   remove: async (id: string) => {
-    const items = (await readList<Trip>(K.trips)).filter((x) => x.id !== id);
-    await writeList(K.trips, items);
+    const items = (await readList<Task>(K.tasks)).filter((x) => x.id !== id);
+    await writeList(K.tasks, items);
   },
+};
+
+export const KEYS = K;
+
+// Petites valeurs (reglages, drapeaux de migration)
+export const kv = {
+  get: async <T>(key: string, fallback: T): Promise<T> => {
+    const raw = await AsyncStorage.getItem(key);
+    if (raw === null) return fallback;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return fallback;
+    }
+  },
+  set: (key: string, value: unknown) => AsyncStorage.setItem(key, JSON.stringify(value)),
 };
 
 export const seededFlag = {

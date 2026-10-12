@@ -4,10 +4,13 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@react-native-vector-icons/ionicons";
 
-import { eventsRepo, expensesRepo, tripsRepo } from "@/src/lib/storage";
-import { computeDeparture, formatDateFr } from "@/src/lib/time";
+import { eventsRepo, expensesRepo, tasksRepo } from "@/src/lib/storage";
+import { pendingTasks, setTaskStatus } from "@/src/lib/tasks";
+import { ChildBadge } from "@/src/components/child-legend";
+import { TaskRow } from "@/src/components/tasks";
+import { computeDeparture, formatDateFr, parseLocal } from "@/src/lib/time";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
-import { AgendaEvent, Trip } from "@/src/types";
+import { AgendaEvent, Task } from "@/src/types";
 
 export default function Home() {
   const styles = useStyles();
@@ -15,27 +18,28 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [nextEvent, setNextEvent] = useState<AgendaEvent | null>(null);
-  const [expensesCount, setExpensesCount] = useState(0);
-  const [lastTrip, setLastTrip] = useState<Trip | null>(null);
-  const [upcoming, setUpcoming] = useState<AgendaEvent[]>([]);
+  const [toVerify, setToVerify] = useState(0);
+  const [events, setEvents] = useState<AgendaEvent[]>([]);
+  const [pending, setPending] = useState<Task[]>([]);
 
   const load = useCallback(async () => {
-    const [events, expenses, trips] = await Promise.all([
-      eventsRepo.list(),
-      expensesRepo.list(),
-      tripsRepo.list(),
-    ]);
+    const [evs, expenses, tasks] = await Promise.all([eventsRepo.list(), expensesRepo.list(), tasksRepo.list()]);
     const now = Date.now();
-    const future = events
+    const future = evs
       .filter((e) => e.status === "prevu")
-      .map((e) => ({ e, ts: new Date(`${e.date}T${e.time}:00`).getTime() }))
-      .filter((x) => x.ts >= now - 3600 * 1000)
+      .map((e) => ({ e, ts: parseLocal(e.date, e.time).getTime() }))
+      .filter((x) => x.ts >= now)
       .sort((a, b) => a.ts - b.ts);
     setNextEvent(future[0]?.e ?? null);
-    setUpcoming(future.slice(0, 3).map((x) => x.e));
-    setExpensesCount(expenses.length);
-    setLastTrip(trips[0] ?? null);
+    setEvents(evs);
+    setToVerify(expenses.filter((e) => !e.category).length);
+    setPending(pendingTasks(tasks));
   }, []);
+
+  const toggleTask = async (t: Task) => {
+    await setTaskStatus(t, "done");
+    load();
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -65,19 +69,22 @@ export default function Home() {
 
         {/* Resume du jour */}
         <View style={styles.summaryCard} testID="daily-summary-card">
-          <Text style={styles.sectionTitle}>Resume du jour</Text>
+          <Text style={styles.sectionTitle}>À faire maintenant</Text>
 
           {nextEvent ? (
             <View style={styles.summaryRow}>
               <Ionicons name="calendar" color={colors.brandPrimary} size={22} />
               <View style={{ flex: 1, marginLeft: spacing.md }}>
                 <Text style={styles.summaryLabel}>Prochain rendez-vous</Text>
-                <Text style={styles.summaryValue}>
-                  {nextEvent.title} - {nextEvent.time}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  {nextEvent.childCode ? <ChildBadge code={nextEvent.childCode} size={20} /> : null}
+                  <Text style={[styles.summaryValue, { flexShrink: 1 }]} testID="home-next-event">
+                    {nextEvent.title} - {formatDateFr(nextEvent.date)} {nextEvent.time}
+                  </Text>
+                </View>
                 <Text style={styles.summarySub}>
-                  Depart recommande:{" "}
-                  <Text style={{ color: colors.brandPrimary, fontWeight: "700" }}>
+                  Départ recommandé :{" "}
+                  <Text style={{ color: colors.brandPrimary, fontWeight: "700" }} testID="home-next-departure">
                     {computeDeparture(nextEvent.time, nextEvent.travelMin, nextEvent.bufferMin)}
                   </Text>
                 </Text>
@@ -90,27 +97,36 @@ export default function Home() {
             </View>
           )}
 
-          <View style={styles.divider} />
+          {toVerify > 0 && (
+            <>
+              <View style={styles.divider} />
+              <Pressable style={styles.summaryRow} onPress={() => router.push("/(tabs)/comptabilite")} testID="home-to-verify">
+                <Ionicons name="alert-circle" color={colors.warning} size={22} />
+                <View style={{ flex: 1, marginLeft: spacing.md }}>
+                  <Text style={styles.summaryLabel}>Dépenses à vérifier</Text>
+                  <Text style={styles.summaryValue}>{toVerify} dépense(s) à classer</Text>
+                </View>
+                <Ionicons name="chevron-forward" color={colors.muted} size={20} />
+              </Pressable>
+            </>
+          )}
+        </View>
 
-          <View style={styles.summaryRow}>
-            <Ionicons name="wallet" color={colors.brandPrimary} size={22} />
-            <View style={{ flex: 1, marginLeft: spacing.md }}>
-              <Text style={styles.summaryLabel}>Depenses enregistrees</Text>
-              <Text style={styles.summaryValue}>{expensesCount}</Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.summaryRow}>
-            <Ionicons name="car" color={colors.brandPrimary} size={22} />
-            <View style={{ flex: 1, marginLeft: spacing.md }}>
-              <Text style={styles.summaryLabel}>Dernier deplacement</Text>
-              <Text style={styles.summaryValue}>
-                {lastTrip ? `${lastTrip.destination} - ${lastTrip.kmEnd - lastTrip.kmStart} km` : "Aucun"}
-              </Text>
-            </View>
-          </View>
+        <View style={{ marginTop: spacing.xl }} testID="home-prep-section">
+          <Text style={styles.sectionTitle}>À préparer</Text>
+          {pending.length === 0 ? (
+            <Text style={styles.summarySub}>Rien à préparer pour le moment.</Text>
+          ) : (
+            pending.slice(0, 5).map((t) => (
+              <TaskRow
+                key={t.id}
+                task={t}
+                event={events.find((e) => e.id === t.eventId)}
+                onToggle={() => toggleTask(t)}
+                onPress={() => router.push("/(tabs)/agenda")}
+              />
+            ))
+          )}
         </View>
 
         {/* Cartes modules */}
@@ -120,37 +136,16 @@ export default function Home() {
           testID="module-comptabilite"
           icon="wallet-outline"
           title="Comptabilite"
-          subtitle="Justificatifs, depenses, sessions"
+          subtitle="Tickets, budget, dossier PDF"
           onPress={() => router.push("/(tabs)/comptabilite")}
         />
         <ModuleCard
           testID="module-agenda"
           icon="calendar-outline"
           title="Agenda"
-          subtitle="Rendez-vous et rappels"
+          subtitle="Rendez-vous, rappels, préparations"
           onPress={() => router.push("/(tabs)/agenda")}
         />
-        <ModuleCard
-          testID="module-vehicule"
-          icon="car-outline"
-          title="Tableau de bord"
-          subtitle="Deplacements et kilometrage"
-          onPress={() => router.push("/(tabs)/vehicule")}
-        />
-
-        {upcoming.length > 1 && (
-          <View style={{ marginTop: spacing.xl }}>
-            <Text style={styles.sectionTitle}>Prochaines taches</Text>
-            {upcoming.map((e) => (
-              <View key={e.id} style={styles.taskRow} testID={`home-task-${e.id}`}>
-                <Ionicons name="ellipse" color={colors.brandPrimary} size={10} />
-                <Text style={styles.taskText}>
-                  {formatDateFr(e.date)} {e.time} - {e.title}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
       </ScrollView>
     </View>
   );

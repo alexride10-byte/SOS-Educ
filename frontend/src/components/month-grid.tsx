@@ -3,16 +3,11 @@ import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Ionicons from "@react-native-vector-icons/ionicons";
 
-import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
-import { AgendaEvent, EventStatus } from "@/src/types";
+import { makeStyles, onSwatch, radius, spacing, useTheme } from "@/src/theme";
+import { AgendaEvent } from "@/src/types";
+import { useChildColors } from "@/src/lib/child-colors";
 
 const DAYS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
-const STATUS_KEY: Record<EventStatus, "info" | "success" | "error" | "warning"> = {
-  prevu: "info",
-  effectue: "success",
-  annule: "error",
-  reporte: "warning",
-};
 
 function iso(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -27,6 +22,7 @@ export function MonthGrid(props: {
 }) {
   const styles = useStyles();
   const { colors } = useTheme();
+  const { childColors } = useChildColors();
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -100,9 +96,18 @@ export function MonthGrid(props: {
                 >
                   {d.getDate()}
                 </Text>
-                <View style={styles.bars}>
+                <View style={styles.dots}>
                   {evs.slice(0, 3).map((e) => (
-                    <View key={e.id} style={[styles.bar, { backgroundColor: colors[STATUS_KEY[e.status]] }]} />
+                    <View
+                      key={e.id}
+                      style={[
+                        styles.dot,
+                        { backgroundColor: e.childCode ? childColors[e.childCode] : colors.borderStrong },
+                        e.status === "annule" && { opacity: 0.35 },
+                      ]}
+                    >
+                      <Text style={styles.dotText}>{e.childCode ?? "•"}</Text>
+                    </View>
                   ))}
                 </View>
               </Pressable>
@@ -128,10 +133,11 @@ const useStyles = makeStyles((colors) => ({
   monthLabel: { fontSize: 15, fontWeight: "700", color: colors.onSurface, textTransform: "capitalize" },
   row: { flexDirection: "row" },
   dayHead: { flex: 1, textAlign: "center", fontSize: 10, fontWeight: "700", color: colors.muted, paddingVertical: 4 },
-  cell: { flex: 1, height: 44, alignItems: "center", paddingTop: 4, borderRadius: radius.sm },
+  cell: { flex: 1, height: 48, alignItems: "center", paddingTop: 4, borderRadius: radius.sm },
   cellSelected: { backgroundColor: colors.brandSecondary },
   dayNum: { fontSize: 12, color: colors.onSurface, fontWeight: "600" },
   today: { color: colors.brandPrimary, fontWeight: "800", textDecorationLine: "underline" },
-  bars: { marginTop: 3, gap: 2, width: "70%" },
-  bar: { height: 3, borderRadius: 2 },
+  dots: { flexDirection: "row", marginTop: 3, gap: 2 },
+  dot: { width: 13, height: 13, borderRadius: 7, alignItems: "center", justifyContent: "center" },
+  dotText: { fontSize: 8, fontWeight: "800", color: onSwatch },
 }));

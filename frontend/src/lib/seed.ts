@@ -6,9 +6,8 @@ import {
   expensesRepo,
   seededFlag,
   sessionsRepo,
-  tripsRepo,
 } from "./storage";
-import { AgendaEvent, Expense, Session, Trip } from "@/src/types";
+import { AgendaEvent, Expense, Session } from "@/src/types";
 
 function iso(d: Date) {
   return d.toISOString().split("T")[0];
@@ -51,7 +50,7 @@ export async function seedIfNeeded() {
       merchant: "Pharmacie Centre",
       amount: 12.9,
       paymentMethod: "especes",
-      category: "sante",
+      category: "divers",
       comment: "",
       createdAt: new Date().toISOString(),
     },
@@ -62,7 +61,7 @@ export async function seedIfNeeded() {
       merchant: "Librairie du Parc",
       amount: 18.5,
       paymentMethod: "carte",
-      category: "loisirs",
+      category: "animation",
       comment: "Livre (demo)",
       createdAt: new Date().toISOString(),
     },
@@ -78,7 +77,7 @@ export async function seedIfNeeded() {
     {
       id: "evt-1",
       title: "Consultation medecin",
-      childName: "Enfant A (fictif)",
+      childCode: "A",
       date: iso(today),
       time: "15:00",
       location: "Cabinet medical",
@@ -92,7 +91,7 @@ export async function seedIfNeeded() {
     {
       id: "evt-2",
       title: "Reunion ecole",
-      childName: "Enfant B (fictif)",
+      childCode: "B",
       date: iso(tomorrow),
       time: "10:30",
       location: "Ecole primaire",
@@ -106,7 +105,7 @@ export async function seedIfNeeded() {
     {
       id: "evt-3",
       title: "Activite sportive",
-      childName: "Enfant C (fictif)",
+      childCode: "C",
       date: iso(dayAfter),
       time: "17:00",
       location: "Gymnase",
@@ -119,34 +118,6 @@ export async function seedIfNeeded() {
     },
   ];
   for (const e of demoEvents) await eventsRepo.save(e);
-
-  const demoTrips: Trip[] = [
-    {
-      id: "trip-1",
-      sessionId: sess.id,
-      date: iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)),
-      vehicle: "Renault Clio (demo)",
-      driver: "Educateur (demo)",
-      kmStart: 84200,
-      kmEnd: 84245,
-      destination: "Ecole primaire",
-      purpose: "Depose enfant",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "trip-2",
-      sessionId: sess.id,
-      date: iso(today),
-      vehicle: "Renault Clio (demo)",
-      driver: "Educateur (demo)",
-      kmStart: 84245,
-      kmEnd: 84290,
-      destination: "Cabinet medical",
-      purpose: "Rendez-vous medical",
-      createdAt: new Date().toISOString(),
-    },
-  ];
-  for (const t of demoTrips) await tripsRepo.save(t);
 
   await seededFlag.set();
 }

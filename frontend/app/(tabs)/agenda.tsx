@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   View,
@@ -14,11 +15,24 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@react-native-vector-icons/ionicons";
 
-import { eventsRepo } from "@/src/lib/storage";
+import { eventsRepo, tasksRepo } from "@/src/lib/storage";
 import { cancelReminders, scheduleEventReminders } from "@/src/lib/notifications";
-import { computeDeparture, formatDateFr } from "@/src/lib/time";
+import { computeDeparture, departureExplanation, formatDateFr, localIso } from "@/src/lib/time";
+import { pendingTasks, setTaskStatus } from "@/src/lib/tasks";
+import { useChildColors } from "@/src/lib/child-colors";
+import { ChildBadge, ChildLegend } from "@/src/components/child-legend";
+import { TaskForm, TaskRow } from "@/src/components/tasks";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
-import { AgendaEvent, EventStatus, EVENT_STATUS_LABEL } from "@/src/types";
+import {
+  AgendaEvent,
+  CHILD_CODES,
+  ChildCode,
+  DEFAULT_REMINDERS,
+  EventStatus,
+  EVENT_STATUS_LABEL,
+  ReminderPrefs,
+  Task,
+} from "@/src/types";
 import { MonthGrid } from "@/src/components/month-grid";
 
 function uuid() {
@@ -41,11 +55,24 @@ export default function Agenda() {
   const [editing, setEditing] = useState<AgendaEvent | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const visible = selectedDate ? events.filter((e) => e.date === selectedDate) : events;
+  const { childColors } = useChildColors();
+  const [tab, setTab] = useState<"rdv" | "prep">("rdv");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const pending = pendingTasks(tasks);
+  const doneTasks = tasks.filter((t) => t.status === "done");
 
   const reload = useCallback(async () => {
-    const list = (await eventsRepo.list()).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-    setEvents(list);
+    const [list, t] = await Promise.all([eventsRepo.list(), tasksRepo.list()]);
+    setEvents(list.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)));
+    setTasks(t);
   }, []);
+
+  const toggleTask = async (t: Task) => {
+    await setTaskStatus(t, t.status === "done" ? "todo" : "done");
+    reload();
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -57,14 +84,52 @@ export default function Agenda() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Agenda</Text>
-        <Text style={styles.subtitle}>Rendez-vous et rappels locaux</Text>
+        <Text style={styles.subtitle}>Rendez-vous, rappels et préparations</Text>
       </View>
 
+      <View style={styles.segment} testID="agenda-segment">
+        {(["rdv", "prep"] as const).map((k) => {
+          const on = tab === k;
+          return (
+            <Pressable key={k} onPress={() => setTab(k)} testID={`segment-${k}`} style={[styles.segmentBtn, on && styles.segmentBtnOn]}>
+              <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
+                {k === "rdv" ? "Rendez-vous" : `À préparer${pending.length ? ` (${pending.length})` : ""}`}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {tab === "prep" ? (
+        <FlatList
+          data={[...pending, ...doneTasks]}
+          keyExtractor={(t) => t.id}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="checkbox-outline" size={48} color={colors.muted} />
+              <Text style={styles.emptyText}>Aucune préparation</Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <TaskRow
+              task={item}
+              event={events.find((e) => e.id === item.eventId)}
+              onToggle={() => toggleTask(item)}
+              onPress={() => {
+                setEditingTask(item);
+                setShowTaskForm(true);
+              }}
+            />
+          )}
+        />
+      ) : (
       <FlatList
         data={visible}
         ListHeaderComponent={
           <View style={{ marginHorizontal: -spacing.lg, marginBottom: spacing.md }}>
             <MonthGrid events={events} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+            <ChildLegend />
             {selectedDate && (
               <Text style={styles.filterInfo} testID="agenda-filter-info">
                 {formatDateFr(selectedDate)} - toucher a nouveau pour tout afficher
@@ -87,7 +152,7 @@ export default function Agenda() {
               setShowForm(true);
             }}
             testID={`event-row-${item.id}`}
-            style={styles.card}
+            style={[styles.card, item.childCode ? { borderLeftWidth: 5, borderLeftColor: childColors[item.childCode] } : null]}
           >
             <View style={styles.timeBox}>
               <Text style={styles.timeText}>{item.time}</Text>
@@ -95,9 +160,10 @@ export default function Agenda() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.evTitle}>{item.title}</Text>
-              <Text style={styles.evSub}>
-                {item.childName} - {item.location}
-              </Text>
+              <View style={styles.evSubRow}>
+                {item.childCode ? <ChildBadge code={item.childCode} size={20} /> : null}
+                <Text style={styles.evSub}>{item.location || "Lieu non précisé"}</Text>
+              </View>
               <View style={styles.evMetaRow}>
                 <Ionicons name="walk-outline" size={14} color={colors.brandPrimary} />
                 <Text style={styles.evDeparture}>
@@ -113,18 +179,35 @@ export default function Agenda() {
           </Pressable>
         )}
       />
+      )}
 
       <Pressable
         onPress={() => {
-          setEditing(null);
-          setShowForm(true);
+          if (tab === "rdv") {
+            setEditing(null);
+            setShowForm(true);
+          } else {
+            setEditingTask(null);
+            setShowTaskForm(true);
+          }
         }}
-        testID="add-event-fab"
+        testID={tab === "rdv" ? "add-event-fab" : "add-task-fab"}
         style={[styles.fab, { bottom: 16 + insets.bottom }]}
       >
         <Ionicons name="add" color={colors.onBrand} size={28} />
-        <Text style={styles.fabText}>Rendez-vous</Text>
+        <Text style={styles.fabText}>{tab === "rdv" ? "Rendez-vous" : "Préparation"}</Text>
       </Pressable>
+
+      <TaskForm
+        visible={showTaskForm}
+        initial={editingTask}
+        events={events}
+        onClose={() => setShowTaskForm(false)}
+        onSaved={async () => {
+          setShowTaskForm(false);
+          await reload();
+        }}
+      />
 
       <EventForm
         visible={showForm}
@@ -149,7 +232,8 @@ function EventForm(props: {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState("");
-  const [childName, setChildName] = useState("");
+  const [childCode, setChildCode] = useState<ChildCode | null>(null);
+  const [reminders, setReminders] = useState<ReminderPrefs>(DEFAULT_REMINDERS);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
@@ -165,8 +249,9 @@ function EventForm(props: {
       if (!props.visible) return;
       const i = props.initial;
       setTitle(i?.title ?? "");
-      setChildName(i?.childName ?? "");
-      setDate(i?.date ?? new Date().toISOString().split("T")[0]);
+      setChildCode(i?.childCode ?? null);
+      setReminders(i?.reminders ?? DEFAULT_REMINDERS);
+      setDate(i?.date ?? localIso());
       setTime(i?.time ?? "10:00");
       setLocation(i?.location ?? "");
       setDurationMin(String(i?.durationMin ?? 60));
@@ -187,7 +272,8 @@ function EventForm(props: {
     const ev: AgendaEvent = {
       id: old?.id ?? `evt-${uuid()}`,
       title: title.trim() || "Sans titre",
-      childName: childName.trim() || "Enfant (fictif)",
+      childCode,
+      reminders,
       date,
       time,
       location: location.trim(),
@@ -228,7 +314,30 @@ function EventForm(props: {
 
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}>
           <F label="Titre" value={title} onChangeText={setTitle} testID="field-title" />
-          <F label="Enfant (fictif)" value={childName} onChangeText={setChildName} testID="field-child" />
+          <Text style={styles.fieldLabel}>Enfant (code interne, facultatif)</Text>
+          <View style={styles.chipRow}>
+            <Pressable
+              onPress={() => setChildCode(null)}
+              style={[styles.selectChip, !childCode && styles.selectChipOn]}
+              testID="child-none"
+            >
+              <Text style={[styles.selectChipText, !childCode && { color: colors.onBrand }]}>Aucun</Text>
+            </Pressable>
+            {CHILD_CODES.map(({ code }) => {
+              const on = childCode === code;
+              return (
+                <Pressable
+                  key={code}
+                  onPress={() => setChildCode(code)}
+                  style={[styles.childChip, on && { borderColor: colors.onSurface, borderWidth: 3 }]}
+                  testID={`child-${code}`}
+                  accessibilityState={{ selected: on }}
+                >
+                  <ChildBadge code={code} size={32} />
+                </Pressable>
+              );
+            })}
+          </View>
           <F label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} testID="field-event-date" />
           <F label="Heure (HH:MM)" value={time} onChangeText={setTime} testID="field-event-time" />
           <F label="Lieu" value={location} onChangeText={setLocation} testID="field-location" />
@@ -267,7 +376,10 @@ function EventForm(props: {
             <Ionicons name="walk" size={20} color={colors.brandPrimary} />
             <View style={{ marginLeft: spacing.md }}>
               <Text style={styles.departureLabel}>Depart recommande</Text>
-              <Text style={styles.departureValue}>{departure}</Text>
+              <Text style={styles.departureValue} testID="departure-value">{departure}</Text>
+              <Text style={styles.departureExplain} testID="departure-explain">
+                {departureExplanation(time || "00:00", parseInt(travelMin) || 0, parseInt(bufferMin) || 0)}
+              </Text>
             </View>
           </View>
 
@@ -290,11 +402,42 @@ function EventForm(props: {
             })}
           </View>
 
+          <Text style={styles.fieldLabel}>Rappels (notifications locales)</Text>
+          {status !== "prevu" ? (
+            <Text style={styles.reminderNote} testID="reminders-off-note">
+              Aucun rappel : les rappels sont annulés quand le rendez-vous n’est pas « Prévu ».
+            </Text>
+          ) : (
+            <View style={styles.reminderBox}>
+              {(
+                [
+                  ["h1", "1 h avant : rappel du rendez-vous"],
+                  ["m30", "30 min avant : préparation"],
+                  ["departure", `À l'heure de départ (${departure})`],
+                  ["m5", "5 min avant : rappel final (facultatif)"],
+                ] as [keyof ReminderPrefs, string][]
+              ).map(([k, label]) => (
+                <View key={k} style={styles.reminderRow}>
+                  <Text style={styles.reminderLabel}>{label}</Text>
+                  <Switch
+                    value={reminders[k]}
+                    onValueChange={(v) => setReminders({ ...reminders, [k]: v })}
+                    trackColor={{ true: colors.brandPrimary, false: colors.border }}
+                    testID={`reminder-${k}`}
+                  />
+                </View>
+              ))}
+              <Text style={styles.reminderNote}>
+                Les rappels sont reprogrammés à chaque modification. Leur fiabilité doit être vérifiée sur un téléphone réel.
+              </Text>
+            </View>
+          )}
+
           <F label="Commentaire" value={comment} onChangeText={setComment} multiline testID="field-event-comment" />
 
           {props.initial && status !== "prevu" && (
             <F
-              label="Commentaire post-RDV"
+              label="Commentaire après le rendez-vous (court)"
               value={postComment}
               onChangeText={setPostComment}
               multiline
@@ -382,7 +525,33 @@ const useStyles = makeStyles((colors) => ({
   timeText: { fontSize: 18, fontWeight: "700", color: colors.brandPrimary },
   dateText: { fontSize: 10, color: colors.brandPrimary, textTransform: "capitalize", marginTop: 2 },
   evTitle: { fontSize: 15, fontWeight: "700", color: colors.onSurface },
-  evSub: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  evSub: { fontSize: 12, color: colors.muted },
+  evSubRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 },
+  segment: {
+    flexDirection: "row",
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    padding: 4,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceTertiary,
+  },
+  segmentBtn: { flex: 1, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.sm },
+  segmentBtnOn: { backgroundColor: colors.surfaceSecondary },
+  segmentText: { fontSize: 14, fontWeight: "600", color: colors.muted },
+  segmentTextOn: { color: colors.brandPrimary, fontWeight: "700" },
+  childChip: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: "transparent" },
+  departureExplain: { fontSize: 12, color: colors.brandPrimary, marginTop: 2 },
+  reminderBox: {
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  reminderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 48 },
+  reminderLabel: { fontSize: 14, color: colors.onSurface, flex: 1, paddingRight: spacing.sm },
+  reminderNote: { fontSize: 12, color: colors.muted, paddingVertical: spacing.sm },
   evMetaRow: { flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6, flexWrap: "wrap" },
   evDeparture: { fontSize: 12, color: colors.brandPrimary, fontWeight: "600" },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, marginLeft: 4 },

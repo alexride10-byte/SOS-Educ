@@ -19,7 +19,10 @@ import { expensesRepo, sessionsRepo } from "@/src/lib/storage";
 import { exportSessionPdf } from "@/src/lib/pdf";
 import { ocrReceipt } from "@/src/lib/ocr";
 import { pickFromLibrary, takePhoto } from "@/src/lib/image-picker";
-import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { categoryColors, makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { BudgetDashboard } from "@/src/components/budget-dashboard";
+import { BudgetSheet } from "@/src/components/budget-sheet";
+import { localIso } from "@/src/lib/time";
 import {
   EXPENSE_CATEGORIES,
   Expense,
@@ -43,6 +46,7 @@ export default function Comptabilite() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showBudget, setShowBudget] = useState(false);
 
   const reload = useCallback(async () => {
     const [s, e] = await Promise.all([sessionsRepo.list(), expensesRepo.list()]);
@@ -62,7 +66,13 @@ export default function Comptabilite() {
     () => expenses.filter((e) => e.sessionId === currentSessionId),
     [expenses, currentSessionId],
   );
-  const total = filtered.reduce((s, e) => s + e.amount, 0);
+
+  const saveBudget = async (budget: number | undefined) => {
+    if (!currentSession) return;
+    await sessionsRepo.save({ ...currentSession, budget });
+    setShowBudget(false);
+    reload();
+  };
 
   const openNew = () => {
     setEditing(null);
@@ -107,7 +117,7 @@ export default function Comptabilite() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm, paddingVertical: spacing.sm }}
-        style={{ maxHeight: 56 }}
+        style={{ height: 56, flexGrow: 0, flexShrink: 0 }}
       >
         {sessions.map((s) => {
           const selected = s.id === currentSessionId;
@@ -128,33 +138,17 @@ export default function Comptabilite() {
         </Pressable>
       </ScrollView>
 
-      {/* Totals */}
-      <View style={styles.totalRow}>
-        <View>
-          <Text style={styles.totalLabel}>Total session</Text>
-          <Text style={styles.totalValue} testID="session-total">
-            {total.toFixed(2)} EUR
-          </Text>
-        </View>
-        <Pressable
-          onPress={onExport}
-          disabled={!currentSession || exporting}
-          testID="export-session-btn"
-          style={[styles.exportBtn, (!currentSession || exporting) && { opacity: 0.5 }]}
-        >
-          {exporting ? (
-            <ActivityIndicator color={colors.onBrand} />
-          ) : (
-            <>
-              <Ionicons name="print-outline" size={18} color={colors.onBrand} />
-              <Text style={styles.exportText}>Exporter PDF</Text>
-            </>
-          )}
-        </Pressable>
-      </View>
-
       <FlatList
         data={filtered}
+        ListHeaderComponent={
+          <BudgetDashboard
+            session={currentSession}
+            expenses={filtered}
+            onEditBudget={() => setShowBudget(true)}
+            onExport={onExport}
+            exporting={exporting}
+          />
+        }
         keyExtractor={(e) => e.id}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}
         ListEmptyComponent={
@@ -172,18 +166,29 @@ export default function Comptabilite() {
             testID={`expense-row-${item.id}`}
             style={styles.expenseRow}
           >
-            <View style={styles.catIcon}>
+            <View
+              style={[
+                styles.catIcon,
+                { backgroundColor: item.category ? categoryColors[item.category] : colors.surfaceTertiary },
+              ]}
+            >
               <Ionicons
-                name={(EXPENSE_CATEGORIES.find((c) => c.key === item.category)?.icon ?? "pricetag-outline") as any}
+                name={(EXPENSE_CATEGORIES.find((c) => c.key === item.category)?.icon ?? "help-outline") as any}
                 size={22}
-                color={colors.brandPrimary}
+                color={item.category ? "#0B1220" : colors.warning}
               />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.expenseMerchant}>{item.merchant || "(Sans enseigne)"}</Text>
-              <Text style={styles.expenseMeta}>
-                {item.date} - {EXPENSE_CATEGORIES.find((c) => c.key === item.category)?.label}
-              </Text>
+              {item.category ? (
+                <Text style={styles.expenseMeta}>
+                  {item.date} - {EXPENSE_CATEGORIES.find((c) => c.key === item.category)?.label}
+                </Text>
+              ) : (
+                <Text style={[styles.expenseMeta, { color: colors.warning, fontWeight: "700" }]} testID={`to-classify-${item.id}`}>
+                  {item.date} - À classer
+                </Text>
+              )}
             </View>
             <Text style={styles.expenseAmount}>{item.amount.toFixed(2)} EUR</Text>
           </Pressable>
@@ -210,6 +215,13 @@ export default function Comptabilite() {
         initial={editing}
         sessionId={currentSessionId}
       />
+
+      <BudgetSheet
+        visible={showBudget}
+        initial={currentSession?.budget}
+        onClose={() => setShowBudget(false)}
+        onSave={saveBudget}
+      />
     </View>
   );
 }
@@ -229,7 +241,7 @@ function ExpenseFormModal(props: {
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("carte");
-  const [category, setCategory] = useState<ExpenseCategory>("alimentation");
+  const [category, setCategory] = useState<ExpenseCategory | null>(null);
   const [comment, setComment] = useState("");
   const [photoUri, setPhotoUri] = useState<string | undefined>(undefined);
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -239,11 +251,11 @@ function ExpenseFormModal(props: {
     useCallback(() => {
       if (!props.visible) return;
       const i = props.initial;
-      setDate(i?.date ?? new Date().toISOString().split("T")[0]);
+      setDate(i?.date ?? localIso());
       setMerchant(i?.merchant ?? "");
       setAmount(i ? String(i.amount) : "");
       setPaymentMethod(i?.paymentMethod ?? "carte");
-      setCategory(i?.category ?? "alimentation");
+      setCategory(i ? i.category : null);
       setComment(i?.comment ?? "");
       setPhotoUri(i?.photoUri);
       setOcrInfo(null);
@@ -265,10 +277,13 @@ function ExpenseFormModal(props: {
       if (r.date) setDate(r.date);
       if (r.merchant) setMerchant(r.merchant);
       if (r.amount != null) setAmount(String(r.amount));
-      if (r.category && EXPENSE_CATEGORIES.find((c) => c.key === r.category)) {
-        setCategory(r.category as ExpenseCategory);
-      }
-      setOcrInfo("Informations detectees. Verifiez et modifiez si besoin.");
+      const sure = !!r.category && !!EXPENSE_CATEGORIES.find((c) => c.key === r.category);
+      if (sure) setCategory(r.category as ExpenseCategory);
+      setOcrInfo(
+        sure
+          ? "Informations détectées. Vérifiez et modifiez si besoin."
+          : "Informations détectées. Motif principal incertain : confirmez-le ci-dessous.",
+      );
     } catch {
       setOcrInfo("OCR indisponible. Saisie manuelle requise.");
     } finally {
@@ -282,7 +297,7 @@ function ExpenseFormModal(props: {
     const exp: Expense = {
       id: props.initial?.id ?? `exp-${uuid()}`,
       sessionId: props.sessionId,
-      date: date || new Date().toISOString().split("T")[0],
+      date: date || localIso(),
       merchant: merchant.trim(),
       amount: isNaN(amt) ? 0 : amt,
       paymentMethod,
@@ -383,7 +398,12 @@ function ExpenseFormModal(props: {
             })}
           </View>
 
-          <Text style={styles.fieldLabel}>Categorie</Text>
+          <Text style={styles.fieldLabel}>Motif principal du ticket</Text>
+          {!category && (
+            <Text style={[styles.ocrText, { color: colors.warning, marginBottom: 4 }]} testID="category-unconfirmed">
+              Motif non confirmé : la dépense sera marquée « À classer » et exclue de la répartition.
+            </Text>
+          )}
           <View style={styles.chipRow}>
             {EXPENSE_CATEGORIES.map((c) => {
               const selected = category === c.key;

@@ -41,13 +41,6 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="vehicule"
-        options={{
-          title: "Vehicule",
-          tabBarIcon: ({ color, size }) => <Ionicons name="car-outline" color={color} size={size} />,
-        }}
-      />
     </Tabs>
   );
 }

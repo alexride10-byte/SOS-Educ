@@ -40,18 +40,10 @@ class OcrReceiptResponse(BaseModel):
     date: Optional[str] = None  # YYYY-MM-DD
     merchant: Optional[str] = None
     amount: Optional[float] = None
-    category: Optional[str] = None  # alimentation | vetements | transport | loisirs | sante | divers | autre
+    category: Optional[str] = None  # alimentation | entretien | animation | divers | None (a confirmer)
     raw: Optional[str] = None
 
 
-class OcrOdometerRequest(BaseModel):
-    image_base64: str
-    mime_type: Optional[str] = "image/jpeg"
-
-
-class OcrOdometerResponse(BaseModel):
-    kilometers: Optional[int] = None
-    raw: Optional[str] = None
 
 
 def _clean_b64(payload: str) -> str:
@@ -103,6 +95,9 @@ def _parse_json(text: str) -> dict:
     return {}
 
 
+ALLOWED_CATEGORIES = {"alimentation", "entretien", "animation", "divers"}
+
+
 @api_router.post("/ocr/receipt", response_model=OcrReceiptResponse)
 async def ocr_receipt(req: OcrReceiptRequest):
     img = _clean_b64(req.image_base64)
@@ -111,7 +106,12 @@ async def ocr_receipt(req: OcrReceiptRequest):
         "date (format YYYY-MM-DD, utilise la date d'achat si visible sinon null), "
         "merchant (nom du magasin/enseigne, string ou null), "
         "amount (montant TOTAL en euros, number sans symbole, ex 12.45), "
-        "category (choisis parmi: alimentation, vetements, transport, loisirs, sante, divers, autre). "
+        "category: le MOTIF PRINCIPAL du ticket (pas article par article), parmi: "
+        "alimentation (courses principalement alimentaires, meme avec quelques produits d'entretien), "
+        "entretien (achat principalement destine a l'entretien de la maison), "
+        "animation (sortie, activite, loisir, billetterie), "
+        "divers (le reste). "
+        "Si le motif principal n'est pas determinable de facon fiable, mets category a null. "
         "Si une info n'est pas lisible, mets null. Ne mets AUCUN texte avant ou apres le JSON."
     )
     try:
@@ -131,35 +131,11 @@ async def ocr_receipt(req: OcrReceiptRequest):
         date=data.get("date"),
         merchant=data.get("merchant"),
         amount=amount,
-        category=data.get("category"),
+        category=data.get("category") if data.get("category") in ALLOWED_CATEGORIES else None,
         raw=text,
     )
 
 
-@api_router.post("/ocr/odometer", response_model=OcrOdometerResponse)
-async def ocr_odometer(req: OcrOdometerRequest):
-    img = _clean_b64(req.image_base64)
-    prompt = (
-        "Analyse cette photo de compteur / tableau de bord de vehicule. "
-        "Lis le kilometrage affiche (ODO total, pas le trip). "
-        "Reponds UNIQUEMENT avec un JSON valide: {\"kilometers\": <nombre entier ou null>}. "
-        "Pas de texte autour, pas de balises."
-    )
-    try:
-        text = await _run_vision(prompt, img)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logging.exception("OCR odometer failed")
-        raise HTTPException(status_code=500, detail=f"OCR failed: {e}")
-
-    data = _parse_json(text)
-    km = data.get("kilometers")
-    try:
-        km_int = int(km) if km is not None else None
-    except Exception:
-        km_int = None
-    return OcrOdometerResponse(kilometers=km_int, raw=text)
 
 
 app.include_router(api_router)

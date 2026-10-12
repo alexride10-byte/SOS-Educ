@@ -1,6 +1,8 @@
 // Generation PDF locale (via expo-print + partage via expo-sharing).
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import { File } from "expo-file-system";
+import { computeBudget, fmtEur } from "./money";
 import { EXPENSE_CATEGORIES, Expense, PAYMENT_METHODS, Session } from "@/src/types";
 
 function esc(s: string | number | null | undefined) {
@@ -11,7 +13,8 @@ function esc(s: string | number | null | undefined) {
     .replace(/>/g, "&gt;");
 }
 
-function catLabel(k: string) {
+function catLabel(k: string | null) {
+  if (!k) return "À classer";
   return EXPENSE_CATEGORIES.find((c) => c.key === k)?.label ?? k;
 }
 function payLabel(k: string) {
@@ -20,11 +23,24 @@ function payLabel(k: string) {
 
 export async function exportSessionPdf(session: Session, expenses: Expense[]) {
   const items = expenses.filter((e) => e.sessionId === session.id);
-  const total = items.reduce((s, e) => s + (e.amount || 0), 0);
+  const b = computeBudget(session.budget, items);
+  const total = b.total;
 
-  // Totaux par categorie
+  // Totaux par categorie (depenses classees uniquement)
   const byCat: Record<string, number> = {};
-  for (const e of items) byCat[e.category] = (byCat[e.category] || 0) + e.amount;
+  for (const c of b.byCategory) if (c.amount > 0) byCat[c.key] = c.amount;
+
+  // Justificatifs integres en base64 (fiable sur Android et iOS, pas de lien vers un fichier externe)
+  const photoData: Record<string, string> = {};
+  for (const e of items) {
+    if (!e.photoUri) continue;
+    try {
+      const f = new File(e.photoUri);
+      if (f.exists) photoData[e.id] = `data:image/jpeg;base64,${await f.base64()}`;
+    } catch {
+      // photo introuvable : signalee dans le tableau
+    }
+  }
 
   const rows = items
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -36,19 +52,20 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
         <td>${esc(catLabel(e.category))}</td>
         <td>${esc(payLabel(e.paymentMethod))}</td>
         <td style="text-align:right;">${esc(e.amount.toFixed(2))} &euro;</td>
+        <td>${e.photoUri ? (photoData[e.id] ? "Oui" : "Introuvable") : "Non"}</td>
       </tr>`,
     )
     .join("");
 
   const photos = items
-    .filter((e) => !!e.photoUri)
+    .filter((e) => !!photoData[e.id])
     .map(
       (e) => `
       <div style="margin:16px 0; page-break-inside: avoid;">
         <div style="font-size:12px;color:#374151;margin-bottom:6px;">
           ${esc(e.date)} &middot; ${esc(e.merchant)} &middot; ${esc(e.amount.toFixed(2))} &euro;
         </div>
-        <img src="${esc(e.photoUri!)}" style="max-width:100%;max-height:420px;border:1px solid #e5e7eb;border-radius:8px;" />
+        <img src="${photoData[e.id]}" style="max-width:100%;max-height:420px;border:1px solid #e5e7eb;border-radius:8px;" />
       </div>`,
     )
     .join("");
@@ -84,18 +101,26 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
     <div style="margin-top:8px;"><span class="pill">${items.length} depense(s)</span></div>
 
     <h2>Synthese</h2>
-    <div class="total">Total: ${esc(total.toFixed(2))} &euro;</div>
     <table>
-      <thead><tr><th>Categorie</th><th style="text-align:right;">Total</th></tr></thead>
+      <tbody>
+        <tr><td>Budget initial</td><td style="text-align:right;">${b.budget != null ? esc(fmtEur(b.budget)) : "Non défini"}</td></tr>
+        <tr><td>Total des dépenses</td><td style="text-align:right;">${esc(fmtEur(total))}</td></tr>
+        <tr><td>Montant restant</td><td style="text-align:right;">${b.remaining != null ? esc(fmtEur(b.remaining)) : "-"}</td></tr>
+        <tr><td>Dépenses à classer</td><td style="text-align:right;">${b.unclassifiedCount} (${esc(fmtEur(b.unclassifiedTotal))})</td></tr>
+      </tbody>
+    </table>
+    <div class="total">Total: ${esc(fmtEur(total))}</div>
+    <table>
+      <thead><tr><th>Motif (dépenses classées)</th><th style="text-align:right;">Total</th></tr></thead>
       <tbody>${catRows || `<tr><td colspan="2" class="muted">Aucune depense</td></tr>`}</tbody>
     </table>
 
     <h2>Detail des depenses</h2>
     <table>
       <thead>
-        <tr><th>Date</th><th>Enseigne</th><th>Categorie</th><th>Paiement</th><th style="text-align:right;">Montant</th></tr>
+        <tr><th>Date</th><th>Enseigne</th><th>Motif</th><th>Paiement</th><th style="text-align:right;">Montant</th><th>Justificatif</th></tr>
       </thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">Aucune depense</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">Aucune depense</td></tr>`}</tbody>
     </table>
 
     ${photos ? `<h2>Justificatifs</h2>${photos}` : ""}

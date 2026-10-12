@@ -164,5 +164,41 @@ export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.Name
   };
 }
 
+// Couleurs fixes, identiques en theme clair et sombre : graphiques budget et codes enfants.
+export const categoryColors = {
+  alimentation: "#F59E0B",
+  entretien: "#06B6D4",
+  animation: "#EC4899",
+  divers: "#A855F7",
+} as const;
+
+export const budgetPalette = {
+  card: "#0B1220",
+  cardBorder: "#1E293B",
+  text: "#F9FAFB",
+  muted: "#94A3B8",
+  track: "#1E3A8A",
+  budget: "#3B82F6",
+  spent: "#22D3EE",
+  over: "#F87171",
+  ok: "#34D399",
+  warn: "#FBBF24",
+};
+
+export const childDefaultColors = { A: "#3B82F6", B: "#10B981", C: "#F59E0B", D: "#EF4444", E: "#8B5CF6" };
+export const childColorChoices = [
+  "#3B82F6",
+  "#10B981",
+  "#F59E0B",
+  "#EF4444",
+  "#8B5CF6",
+  "#EC4899",
+  "#06B6D4",
+  "#84CC16",
+  "#F97316",
+  "#94A3B8",
+];
+export const onSwatch = "#0B1220"; // texte lisible sur les pastilles colorees
+
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 };
 export const radius = { sm: 6, md: 12, lg: 20, pill: 999 };
