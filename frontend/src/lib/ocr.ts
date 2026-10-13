@@ -9,6 +9,7 @@ export interface ReceiptOcr {
   merchant?: string | null;
   amount?: number | null;
   category?: string | null;
+  payment_method?: "especes" | "carte" | null; // null = a verifier
 }
 
 

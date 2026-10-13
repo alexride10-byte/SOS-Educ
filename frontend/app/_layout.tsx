@@ -12,6 +12,8 @@ import { queryClient } from "@/src/query-client";
 import { seedIfNeeded } from "@/src/lib/seed";
 import { migrateV2 } from "@/src/lib/migrate";
 import { ChildColorsProvider } from "@/src/lib/child-colors";
+import { setupNotifications } from "@/src/lib/notifications";
+import { NotificationActions } from "@/src/lib/notification-actions";
 import { ThemeProvider, useTheme } from "@/src/theme";
 
 LogBox.ignoreAllLogs(true);
@@ -22,7 +24,10 @@ function ThemedStack({ ready }: { ready: boolean }) {
     <>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       {ready ? (
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }} />
+        <>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }} />
+          <NotificationActions />
+        </>
       ) : (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface }}>
           <ActivityIndicator color={colors.brandPrimary} />
@@ -35,6 +40,7 @@ function ThemedStack({ ready }: { ready: boolean }) {
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
+    setupNotifications();
     seedIfNeeded()
       .then(migrateV2)
       .catch(() => {})

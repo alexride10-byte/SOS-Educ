@@ -1,10 +1,10 @@
 // Taches de preparation : enregistrement + (re)programmation du rappel local.
-import { cancelReminders, scheduleTaskReminder } from "./notifications";
+import { cancelTaskReminder, scheduleTaskReminder } from "./notifications";
 import { tasksRepo } from "./storage";
 import { Task, TaskStatus } from "@/src/types";
 
 export async function saveTask(t: Task, previous?: Task | null): Promise<Task> {
-  if (previous?.notificationId) await cancelReminders([previous.notificationId]);
+  await cancelTaskReminder(previous);
   const notificationId = t.status === "done" ? undefined : await scheduleTaskReminder(t);
   const next: Task = { ...t, notificationId };
   await tasksRepo.save(next);
@@ -14,7 +14,7 @@ export async function saveTask(t: Task, previous?: Task | null): Promise<Task> {
 export const setTaskStatus = (t: Task, status: TaskStatus) => saveTask({ ...t, status }, t);
 
 export async function deleteTask(t: Task) {
-  if (t.notificationId) await cancelReminders([t.notificationId]);
+  await cancelTaskReminder(t);
   await tasksRepo.remove(t.id);
 }
 

@@ -41,6 +41,7 @@ class OcrReceiptResponse(BaseModel):
     merchant: Optional[str] = None
     amount: Optional[float] = None
     category: Optional[str] = None  # alimentation | entretien | animation | divers | None (a confirmer)
+    payment_method: Optional[str] = None  # especes | carte | None (a verifier)
     raw: Optional[str] = None
 
 
@@ -96,6 +97,7 @@ def _parse_json(text: str) -> dict:
 
 
 ALLOWED_CATEGORIES = {"alimentation", "entretien", "animation", "divers"}
+ALLOWED_PAYMENTS = {"especes", "carte"}
 
 
 @api_router.post("/ocr/receipt", response_model=OcrReceiptResponse)
@@ -112,6 +114,9 @@ async def ocr_receipt(req: OcrReceiptRequest):
         "animation (sortie, activite, loisir, billetterie), "
         "divers (le reste). "
         "Si le motif principal n'est pas determinable de facon fiable, mets category a null. "
+        "payment_method: 'especes' si le ticket indique clairement un paiement en especes (ESPECES, ESP, CASH, rendu monnaie), "
+        "'carte' s'il indique clairement une carte bancaire (CB, CARTE, VISA, MASTERCARD, sans contact, ticket carte), "
+        "sinon null. Ne devine pas. "
         "Si une info n'est pas lisible, mets null. Ne mets AUCUN texte avant ou apres le JSON."
     )
     try:
@@ -132,6 +137,7 @@ async def ocr_receipt(req: OcrReceiptRequest):
         merchant=data.get("merchant"),
         amount=amount,
         category=data.get("category") if data.get("category") in ALLOWED_CATEGORIES else None,
+        payment_method=data.get("payment_method") if data.get("payment_method") in ALLOWED_PAYMENTS else None,
         raw=text,
     )
 

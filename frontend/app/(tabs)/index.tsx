@@ -10,7 +10,9 @@ import { ChildBadge } from "@/src/components/child-legend";
 import { TaskRow } from "@/src/components/tasks";
 import { computeDeparture, formatDateFr, parseLocal } from "@/src/lib/time";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
-import { AgendaEvent, Task } from "@/src/types";
+import { AgendaEvent, Task, needsReview } from "@/src/types";
+import { NewSessionSheet } from "@/src/components/new-session-sheet";
+import { exportBackup } from "@/src/lib/backup";
 
 export default function Home() {
   const styles = useStyles();
@@ -21,6 +23,7 @@ export default function Home() {
   const [toVerify, setToVerify] = useState(0);
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [pending, setPending] = useState<Task[]>([]);
+  const [showNewSession, setShowNewSession] = useState(false);
 
   const load = useCallback(async () => {
     const [evs, expenses, tasks] = await Promise.all([eventsRepo.list(), expensesRepo.list(), tasksRepo.list()]);
@@ -32,7 +35,7 @@ export default function Home() {
       .sort((a, b) => a.ts - b.ts);
     setNextEvent(future[0]?.e ?? null);
     setEvents(evs);
-    setToVerify(expenses.filter((e) => !e.category).length);
+    setToVerify(expenses.filter(needsReview).length);
     setPending(pendingTasks(tasks));
   }, []);
 
@@ -104,7 +107,7 @@ export default function Home() {
                 <Ionicons name="alert-circle" color={colors.warning} size={22} />
                 <View style={{ flex: 1, marginLeft: spacing.md }}>
                   <Text style={styles.summaryLabel}>Dépenses à vérifier</Text>
-                  <Text style={styles.summaryValue}>{toVerify} dépense(s) à classer</Text>
+                  <Text style={styles.summaryValue}>{toVerify} dépense(s) : motif ou paiement</Text>
                 </View>
                 <Ionicons name="chevron-forward" color={colors.muted} size={20} />
               </Pressable>
@@ -139,6 +142,14 @@ export default function Home() {
           subtitle="Tickets, budget, dossier PDF"
           onPress={() => router.push("/(tabs)/comptabilite")}
         />
+        <Pressable
+          onPress={() => setShowNewSession(true)}
+          testID="home-new-session-btn"
+          style={({ pressed }) => [styles.newSessionBtn, pressed && { opacity: 0.8 }]}
+        >
+          <Ionicons name="add-circle" size={22} color={colors.onBrand} />
+          <Text style={styles.newSessionText}>Nouvelle session</Text>
+        </Pressable>
         <ModuleCard
           testID="module-agenda"
           icon="calendar-outline"
@@ -146,7 +157,19 @@ export default function Home() {
           subtitle="Rendez-vous, rappels, préparations"
           onPress={() => router.push("/(tabs)/agenda")}
         />
+        <Pressable onPress={() => exportBackup()} testID="backup-btn" style={styles.backupBtn}>
+          <Ionicons name="download-outline" size={18} color={colors.muted} />
+          <Text style={styles.backupText}>Exporter une sauvegarde des données</Text>
+        </Pressable>
       </ScrollView>
+      <NewSessionSheet
+        visible={showNewSession}
+        onClose={() => setShowNewSession(false)}
+        onCreated={(ns) => {
+          setShowNewSession(false);
+          router.push({ pathname: "/(tabs)/comptabilite", params: { session: ns.id } });
+        }}
+      />
     </View>
   );
 }
@@ -180,6 +203,19 @@ function ModuleCard(props: {
 
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
+  newSessionBtn: {
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.brandPrimary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: spacing.md,
+  },
+  newSessionText: { color: colors.onBrand, fontSize: 16, fontWeight: "700" },
+  backupBtn: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, marginTop: spacing.xl },
+  backupText: { color: colors.muted, fontSize: 13 },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   themeBtn: {
     width: 48,

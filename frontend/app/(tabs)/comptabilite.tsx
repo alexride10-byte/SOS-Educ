@@ -1,5 +1,5 @@
-import { useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -18,7 +18,12 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import { expensesRepo, sessionsRepo } from "@/src/lib/storage";
 import { exportSessionPdf } from "@/src/lib/pdf";
 import { ocrReceipt } from "@/src/lib/ocr";
-import { pickFromLibrary, takePhoto } from "@/src/lib/image-picker";
+import { PickedImage, pickFromLibrary, takePhoto } from "@/src/lib/image-picker";
+import { reopenSession, updateInitialBudget } from "@/src/lib/sessions";
+import { AddMoneySheet } from "@/src/components/add-money-sheet";
+import { CloseSessionSheet } from "@/src/components/close-session-sheet";
+import { NewSessionSheet } from "@/src/components/new-session-sheet";
+import { CropModal } from "@/src/components/crop-modal";
 import { categoryColors, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { BudgetDashboard } from "@/src/components/budget-dashboard";
 import { BudgetSheet } from "@/src/components/budget-sheet";
@@ -30,6 +35,8 @@ import {
   PAYMENT_METHODS,
   PaymentMethod,
   Session,
+  needsReview,
+  paymentLabel,
 } from "@/src/types";
 
 function uuid() {
@@ -47,6 +54,14 @@ export default function Comptabilite() {
   const [editing, setEditing] = useState<Expense | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showBudget, setShowBudget] = useState(false);
+  const [showAddMoney, setShowAddMoney] = useState(false);
+  const [showClose, setShowClose] = useState(false);
+  const [showNewSession, setShowNewSession] = useState(false);
+  const params = useLocalSearchParams<{ session?: string }>();
+
+  useEffect(() => {
+    if (params.session) setCurrentSessionId(params.session);
+  }, [params.session]);
 
   const reload = useCallback(async () => {
     const [s, e] = await Promise.all([sessionsRepo.list(), expensesRepo.list()]);
@@ -69,7 +84,7 @@ export default function Comptabilite() {
 
   const saveBudget = async (budget: number | undefined) => {
     if (!currentSession) return;
-    await sessionsRepo.save({ ...currentSession, budget });
+    await updateInitialBudget(currentSession.id, budget ?? 0);
     setShowBudget(false);
     reload();
   };
@@ -89,21 +104,7 @@ export default function Comptabilite() {
     }
   };
 
-  const createSession = async () => {
-    const start = new Date();
-    const end = new Date();
-    end.setDate(start.getDate() + 14);
-    const s: Session = {
-      id: `sess-${uuid()}`,
-      label: `Session du ${start.getDate()}/${start.getMonth() + 1} au ${end.getDate()}/${end.getMonth() + 1}`,
-      startDate: start.toISOString().split("T")[0],
-      endDate: end.toISOString().split("T")[0],
-      createdAt: new Date().toISOString(),
-    };
-    await sessionsRepo.save(s);
-    setCurrentSessionId(s.id);
-    reload();
-  };
+  const closed = !!currentSession?.closure;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -132,7 +133,7 @@ export default function Comptabilite() {
             </Pressable>
           );
         })}
-        <Pressable onPress={createSession} testID="session-create-chip" style={[styles.chip, styles.chipAdd]}>
+        <Pressable onPress={() => setShowNewSession(true)} testID="session-create-chip" style={[styles.chip, styles.chipAdd]}>
           <Ionicons name="add" size={16} color={colors.brandPrimary} />
           <Text style={[styles.chipText, { color: colors.brandPrimary, marginLeft: 4 }]}>Nouvelle session</Text>
         </Pressable>
@@ -145,6 +146,12 @@ export default function Comptabilite() {
             session={currentSession}
             expenses={filtered}
             onEditBudget={() => setShowBudget(true)}
+            onAddMoney={() => setShowAddMoney(true)}
+            onCloseSession={() => setShowClose(true)}
+            onReopen={async () => {
+              if (currentSession) await reopenSession(currentSession.id);
+              reload();
+            }}
             onExport={onExport}
             exporting={exporting}
           />
@@ -159,6 +166,7 @@ export default function Comptabilite() {
         }
         renderItem={({ item }) => (
           <Pressable
+            disabled={closed}
             onPress={() => {
               setEditing(item);
               setShowForm(true);
@@ -182,11 +190,14 @@ export default function Comptabilite() {
               <Text style={styles.expenseMerchant}>{item.merchant || "(Sans enseigne)"}</Text>
               {item.category ? (
                 <Text style={styles.expenseMeta}>
-                  {item.date} - {EXPENSE_CATEGORIES.find((c) => c.key === item.category)?.label}
+                  {item.date} - {EXPENSE_CATEGORIES.find((c) => c.key === item.category)?.label} ·{" "}
+                  <Text style={needsReview(item) ? { color: colors.warning, fontWeight: "700" } : null} testID={`pay-label-${item.id}`}>
+                    {paymentLabel(item.paymentMethod)}
+                  </Text>
                 </Text>
               ) : (
                 <Text style={[styles.expenseMeta, { color: colors.warning, fontWeight: "700" }]} testID={`to-classify-${item.id}`}>
-                  {item.date} - À classer
+                  {item.date} - À classer · {paymentLabel(item.paymentMethod)}
                 </Text>
               )}
             </View>
@@ -195,15 +206,15 @@ export default function Comptabilite() {
         )}
       />
 
-      {/* FAB */}
-      <Pressable
+      {/* FAB (masque si la session est cloturee) */}
+      {!closed && <Pressable
         onPress={openNew}
         testID="add-expense-fab"
         style={[styles.fab, { bottom: 16 + insets.bottom }]}
       >
         <Ionicons name="camera" color={colors.onBrand} size={26} />
         <Text style={styles.fabText}>Photo</Text>
-      </Pressable>
+      </Pressable>}
 
       <ExpenseFormModal
         visible={showForm}
@@ -221,6 +232,33 @@ export default function Comptabilite() {
         initial={currentSession?.budget}
         onClose={() => setShowBudget(false)}
         onSave={saveBudget}
+      />
+      <AddMoneySheet
+        visible={showAddMoney}
+        sessionId={currentSessionId}
+        onClose={() => setShowAddMoney(false)}
+        onDone={() => {
+          setShowAddMoney(false);
+          reload();
+        }}
+      />
+      <CloseSessionSheet
+        visible={showClose}
+        session={currentSession}
+        onClose={() => setShowClose(false)}
+        onDone={() => {
+          setShowClose(false);
+          reload();
+        }}
+      />
+      <NewSessionSheet
+        visible={showNewSession}
+        onClose={() => setShowNewSession(false)}
+        onCreated={(ns) => {
+          setShowNewSession(false);
+          setCurrentSessionId(ns.id);
+          reload();
+        }}
       />
     </View>
   );
@@ -240,7 +278,9 @@ function ExpenseFormModal(props: {
   const [date, setDate] = useState("");
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("carte");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [originalPhotoUri, setOriginalPhotoUri] = useState<string | undefined>(undefined);
+  const [cropSource, setCropSource] = useState<PickedImage | null>(null);
   const [category, setCategory] = useState<ExpenseCategory | null>(null);
   const [comment, setComment] = useState("");
   const [photoUri, setPhotoUri] = useState<string | undefined>(undefined);
@@ -254,18 +294,29 @@ function ExpenseFormModal(props: {
       setDate(i?.date ?? localIso());
       setMerchant(i?.merchant ?? "");
       setAmount(i ? String(i.amount) : "");
-      setPaymentMethod(i?.paymentMethod ?? "carte");
+      setPaymentMethod(i ? i.paymentMethod : null);
       setCategory(i ? i.category : null);
       setComment(i?.comment ?? "");
       setPhotoUri(i?.photoUri);
+      setOriginalPhotoUri(i?.originalPhotoUri);
       setOcrInfo(null);
     }, [props.visible, props.initial]),
   );
 
+  // 1. photo -> 2. apercu / recadrage manuel -> 3. image validee envoyee a la reconnaissance existante
   const runOcr = async (source: "camera" | "library") => {
     const pick = source === "camera" ? await takePhoto() : await pickFromLibrary();
-    if (!pick) return;
+    if (pick) setCropSource(pick);
+  };
+
+  const onCropValidated = (pick: PickedImage, original: PickedImage) => {
+    setCropSource(null);
+    setOriginalPhotoUri(original.uri);
     setPhotoUri(pick.uri);
+    analyze(pick);
+  };
+
+  const analyze = async (pick: PickedImage) => {
     if (!pick.base64) {
       setOcrInfo("Image sans base64, verifiez manuellement.");
       return;
@@ -279,10 +330,13 @@ function ExpenseFormModal(props: {
       if (r.amount != null) setAmount(String(r.amount));
       const sure = !!r.category && !!EXPENSE_CATEGORIES.find((c) => c.key === r.category);
       if (sure) setCategory(r.category as ExpenseCategory);
+      const paySure = r.payment_method === "especes" || r.payment_method === "carte";
+      if (paySure) setPaymentMethod(r.payment_method as PaymentMethod);
+      const doubts = [!sure && "motif principal", !paySure && "mode de paiement"].filter(Boolean).join(" et ");
       setOcrInfo(
-        sure
-          ? "Informations détectées. Vérifiez et modifiez si besoin."
-          : "Informations détectées. Motif principal incertain : confirmez-le ci-dessous.",
+        doubts
+          ? `Informations détectées. À vérifier : ${doubts}.`
+          : "Informations détectées. Vérifiez et modifiez si besoin.",
       );
     } catch {
       setOcrInfo("OCR indisponible. Saisie manuelle requise.");
@@ -304,6 +358,7 @@ function ExpenseFormModal(props: {
       category,
       comment,
       photoUri,
+      originalPhotoUri,
       createdAt: props.initial?.createdAt ?? new Date().toISOString(),
     };
     await expensesRepo.save(exp);
@@ -376,7 +431,12 @@ function ExpenseFormModal(props: {
             testID="field-amount"
           />
 
-          <Text style={styles.fieldLabel}>Moyen de paiement</Text>
+          <Text style={styles.fieldLabel}>Mode de paiement</Text>
+          {paymentMethod !== "especes" && paymentMethod !== "carte" && (
+            <Text style={[styles.ocrText, { color: colors.warning, marginBottom: 4 }]} testID="payment-unconfirmed">
+              À vérifier : choisissez ESP ou CB.
+            </Text>
+          )}
           <View style={styles.chipRow}>
             {PAYMENT_METHODS.map((p) => {
               const selected = paymentMethod === p.key;
@@ -447,6 +507,7 @@ function ExpenseFormModal(props: {
             <Text style={styles.saveText}>Enregistrer</Text>
           </Pressable>
         </View>
+        <CropModal image={cropSource} onCancel={() => setCropSource(null)} onValidated={onCropValidated} />
       </KeyboardAvoidingView>
     </Modal>
   );

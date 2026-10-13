@@ -20,19 +20,30 @@ export function BudgetDashboard(props: {
   session: Session | null;
   expenses: Expense[]; // depenses de la session
   onEditBudget: () => void;
+  onAddMoney: () => void;
+  onCloseSession: () => void;
+  onReopen: () => void;
   onExport: () => void;
   exporting: boolean;
 }) {
   const styles = useStyles();
-  const b = computeBudget(props.session?.budget, props.expenses);
-  const over = b.remaining != null && b.remaining < 0;
+  const b = computeBudget(props.session, props.expenses);
+  const over = b.remaining < 0;
+  const closure = props.session?.closure;
+  const additions = props.session?.additions ?? [];
+  const carryText =
+    closure?.carryStatus === "pending"
+      ? "report en attente de la prochaine session"
+      : closure?.carryStatus === "transferred"
+        ? `reporté (${fmtEur(closure.transferredAmount ?? closure.finalBalance)})`
+        : "non reporté";
 
   // Anneau
   const size = 112;
   const stroke = 14;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
-  const progress = Math.min(b.percentSpent ?? 0, 100) / 100;
+  const progress = b.percentSpent == null ? (b.total > 0 ? 1 : 0) : Math.min(b.percentSpent, 100) / 100;
 
   // Camembert
   const pie = 132;
@@ -44,57 +55,96 @@ export function BudgetDashboard(props: {
     <View style={styles.card} testID="budget-dashboard">
       <View style={styles.headRow}>
         <Text style={styles.cardTitle}>Budget de la session</Text>
-        <Pressable onPress={props.onEditBudget} style={styles.iconBtn} testID="edit-budget-btn" accessibilityLabel="Modifier le budget">
-          <Ionicons name="create-outline" size={20} color={P.text} />
-        </Pressable>
+        {!closure && (
+          <Pressable onPress={props.onEditBudget} style={styles.iconBtn} testID="edit-budget-btn" accessibilityLabel="Modifier le budget initial">
+            <Ionicons name="create-outline" size={20} color={P.text} />
+          </Pressable>
+        )}
       </View>
 
-      {b.budget == null ? (
-        <Pressable onPress={props.onEditBudget} style={styles.defineBtn} testID="define-budget-btn">
-          <Ionicons name="add-circle-outline" size={20} color={P.budget} />
-          <Text style={styles.defineText}>Définir le budget initial</Text>
-        </Pressable>
-      ) : (
-        <View style={styles.ringRow}>
-          <View style={{ width: size, height: size }}>
-            <Svg width={size} height={size}>
-              <Circle cx={size / 2} cy={size / 2} r={r} stroke={P.track} strokeWidth={stroke} fill="none" />
-              <Circle
-                cx={size / 2}
-                cy={size / 2}
-                r={r}
-                stroke={over ? P.over : P.spent}
-                strokeWidth={stroke}
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray={`${circ * progress} ${circ}`}
-                transform={`rotate(-90 ${size / 2} ${size / 2})`}
-              />
-            </Svg>
-            <View style={styles.ringCenter}>
-              <Text style={[styles.ringPct, over && { color: P.over }]} testID="budget-percent">
-                {Math.round(b.percentSpent ?? 0)} %
-              </Text>
-              <Text style={styles.ringSub}>dépensé</Text>
-            </View>
-          </View>
-          <View style={{ flex: 1, gap: spacing.sm }}>
-            <Stat dot={P.budget} label="Budget initial" value={fmtEur(b.budget)} testID="budget-initial" />
-            <Stat dot={over ? P.over : P.spent} label="Dépenses" value={fmtEur(b.total)} testID="session-total" />
-            <Stat
-              dot={over ? P.over : P.ok}
-              label={over ? "Dépassement" : "Restant"}
-              value={fmtEur(Math.abs(b.remaining ?? 0))}
-              testID="budget-remaining"
-              valueColor={over ? P.over : P.ok}
-            />
-          </View>
+      {closure && (
+        <View style={styles.closedBox} testID="session-closed-banner">
+          <Ionicons name="lock-closed" size={16} color={P.warn} />
+          <Text style={styles.closedText}>
+            Clôturée le {new Date(closure.closedAt).toLocaleDateString("fr-FR")} · solde final {fmtEur(closure.finalBalance)} · {carryText}
+          </Text>
         </View>
       )}
-      {b.budget == null && (
-        <Text style={styles.muted} testID="session-total">
-          Dépenses enregistrées : {fmtEur(b.total)}
+
+      <View style={styles.ringRow}>
+        <View style={{ width: size, height: size }}>
+          <Svg width={size} height={size}>
+            <Circle cx={size / 2} cy={size / 2} r={r} stroke={P.track} strokeWidth={stroke} fill="none" />
+            <Circle
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              stroke={over ? P.over : P.spent}
+              strokeWidth={stroke}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${circ * progress} ${circ}`}
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          </Svg>
+          <View style={styles.ringCenter}>
+            <Text style={[styles.ringPct, over && { color: P.over }]} testID="budget-percent">
+              {b.percentSpent == null ? "—" : `${Math.round(b.percentSpent)} %`}
+            </Text>
+            <Text style={styles.ringSub}>consommé</Text>
+          </View>
+        </View>
+        <View style={{ flex: 1, gap: spacing.sm }}>
+          <Stat dot={P.budget} label="Disponible" value={fmtEur(b.available)} testID="budget-available" />
+          <Stat dot={over ? P.over : P.spent} label="Dépensé" value={fmtEur(b.total)} testID="session-total" />
+          <Stat
+            dot={over ? P.over : P.ok}
+            label={over ? "Dépassement" : "Restant"}
+            value={fmtEur(Math.abs(b.remaining))}
+            testID="budget-remaining"
+            valueColor={over ? P.over : P.ok}
+          />
+        </View>
+      </View>
+
+      <View style={styles.breakdown} testID="budget-breakdown">
+        <Text style={styles.breakText}>
+          Report <Text style={styles.breakVal} testID="budget-carry">{fmtEur(b.carryOver)}</Text>
         </Text>
+        <Text style={styles.breakText}>
+          + Initial <Text style={styles.breakVal} testID="budget-initial">{fmtEur(b.initial)}</Text>
+        </Text>
+        <Text style={styles.breakText}>
+          + Ajouts <Text style={styles.breakVal} testID="budget-additions">{fmtEur(b.additionsTotal)}</Text>
+        </Text>
+      </View>
+      {additions.length > 0 && (
+        <View style={{ marginTop: spacing.sm, gap: 2 }} testID="additions-history">
+          {additions.map((a) => (
+            <Text key={a.id} style={styles.historyText}>
+              {new Date(a.date).toLocaleDateString("fr-FR")} · +{fmtEur(a.amount)}
+              {a.reason ? ` · ${a.reason}` : ""}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {!closure ? (
+        <View style={styles.actionRow}>
+          <Pressable onPress={props.onAddMoney} style={styles.addBtn} testID="add-money-btn">
+            <Ionicons name="add" size={20} color={P.card} />
+            <Text style={styles.addText}>Ajouter de l’argent</Text>
+          </Pressable>
+          <Pressable onPress={props.onCloseSession} style={styles.closeBtn} testID="close-session-btn">
+            <Ionicons name="lock-closed-outline" size={16} color={P.text} />
+            <Text style={styles.closeText}>Clôturer</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable onPress={props.onReopen} style={[styles.closeBtn, { marginTop: spacing.md }]} testID="reopen-session-btn">
+          <Ionicons name="lock-open-outline" size={16} color={P.text} />
+          <Text style={styles.closeText}>Rouvrir pour corriger</Text>
+        </Pressable>
       )}
 
       <View style={styles.sep} />
@@ -200,6 +250,17 @@ const useStyles = makeStyles(() => ({
   headRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   cardTitle: { color: P.text, fontSize: 15, fontWeight: "700" },
   iconBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  closedBox: { flexDirection: "row", gap: 8, alignItems: "center", marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.md, backgroundColor: "#422006" },
+  closedText: { color: P.warn, fontSize: 12, flex: 1 },
+  breakdown: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: spacing.md },
+  breakText: { color: P.muted, fontSize: 12 },
+  breakVal: { color: P.text, fontWeight: "700" },
+  historyText: { color: P.muted, fontSize: 12 },
+  actionRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+  addBtn: { flex: 1, height: 48, borderRadius: radius.md, backgroundColor: P.budget, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  addText: { color: P.card, fontWeight: "800" },
+  closeBtn: { height: 48, paddingHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: P.cardBorder, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  closeText: { color: P.text, fontWeight: "700" },
   defineBtn: {
     marginTop: spacing.sm,
     flexDirection: "row",

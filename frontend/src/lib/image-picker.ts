@@ -8,10 +8,12 @@ export interface PickedImage {
   uri: string;
   base64: string;
   mimeType: string;
+  width: number;
+  height: number;
 }
 
 // Copie la photo du cache (purgeable par le systeme) vers le dossier documents prive de l'app.
-function persist(uri: string): string {
+export function persistPhoto(uri: string): string {
   if (Platform.OS === "web") return uri;
   try {
     const dir = new Directory(Paths.document, "justificatifs");
@@ -28,7 +30,9 @@ async function toPicked(res: ImagePicker.ImagePickerResult): Promise<PickedImage
   if (res.canceled || !res.assets?.length) return null;
   const a = res.assets[0];
   return {
-    uri: persist(a.uri),
+    uri: persistPhoto(a.uri),
+    width: a.width,
+    height: a.height,
     base64: a.base64 ?? "",
     mimeType: a.mimeType ?? "image/jpeg",
   };

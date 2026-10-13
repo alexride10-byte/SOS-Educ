@@ -36,14 +36,13 @@ export function ChildLegend() {
   return (
     <View style={styles.wrap} testID="child-legend">
       <View style={styles.row}>
-        {CHILD_CODES.map(({ code, group }, i) => (
+        {CHILD_CODES.map(({ code }) => (
           <View key={code} style={{ flexDirection: "row", alignItems: "center" }}>
-            {i === 3 && <View style={styles.groupSep} />}
             <Pressable
               onPress={() => setEditing(code)}
               style={styles.item}
               testID={`legend-child-${code}`}
-              accessibilityLabel={`Changer la couleur de ${code}, fratrie ${group}`}
+              accessibilityLabel={`Changer la couleur de ${code}`}
             >
               <ChildBadge code={code} size={28} />
             </Pressable>
@@ -52,8 +51,8 @@ export function ChildLegend() {
         <Ionicons name="color-palette-outline" size={18} color={colors.muted} style={{ marginLeft: "auto" }} />
       </View>
       <Text style={styles.caption}>
-        A · B · C : fratrie 1 — D · E : fratrie 2 (du plus jeune au plus âgé). Touchez une lettre pour changer sa
-        couleur. Codes internes : ils ne garantissent pas l’anonymat.
+        Codes internes A à E, à utiliser selon l’organisation de la maison. Touchez une lettre pour changer sa
+        couleur. Ces codes ne garantissent pas l’anonymat.
       </Text>
 
       <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>

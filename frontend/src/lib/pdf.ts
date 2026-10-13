@@ -3,7 +3,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { File } from "expo-file-system";
 import { computeBudget, fmtEur } from "./money";
-import { EXPENSE_CATEGORIES, Expense, PAYMENT_METHODS, Session } from "@/src/types";
+import { EXPENSE_CATEGORIES, Expense, PaymentMethod, Session, paymentLabel } from "@/src/types";
 
 function esc(s: string | number | null | undefined) {
   if (s === null || s === undefined) return "";
@@ -17,13 +17,13 @@ function catLabel(k: string | null) {
   if (!k) return "À classer";
   return EXPENSE_CATEGORIES.find((c) => c.key === k)?.label ?? k;
 }
-function payLabel(k: string) {
-  return PAYMENT_METHODS.find((c) => c.key === k)?.label ?? k;
+function payLabel(k: PaymentMethod | null) {
+  return paymentLabel(k);
 }
 
 export async function exportSessionPdf(session: Session, expenses: Expense[]) {
   const items = expenses.filter((e) => e.sessionId === session.id);
-  const b = computeBudget(session.budget, items);
+  const b = computeBudget(session, items);
   const total = b.total;
 
   // Totaux par categorie (depenses classees uniquement)
@@ -61,11 +61,11 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
     .filter((e) => !!photoData[e.id])
     .map(
       (e) => `
-      <div style="margin:16px 0; page-break-inside: avoid;">
+      <div style="page-break-before: always; padding-top:8px;">
         <div style="font-size:12px;color:#374151;margin-bottom:6px;">
           ${esc(e.date)} &middot; ${esc(e.merchant)} &middot; ${esc(e.amount.toFixed(2))} &euro;
         </div>
-        <img src="${photoData[e.id]}" style="max-width:100%;max-height:420px;border:1px solid #e5e7eb;border-radius:8px;" />
+        <img src="${photoData[e.id]}" style="max-width:100%;max-height:880px;border:1px solid #e5e7eb;border-radius:8px;" />
       </div>`,
     )
     .join("");
@@ -103,9 +103,14 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
     <h2>Synthese</h2>
     <table>
       <tbody>
-        <tr><td>Budget initial</td><td style="text-align:right;">${b.budget != null ? esc(fmtEur(b.budget)) : "Non défini"}</td></tr>
+        <tr><td>Report de la session précédente</td><td style="text-align:right;">${esc(fmtEur(b.carryOver))}</td></tr>
+        <tr><td>Budget initial</td><td style="text-align:right;">${esc(fmtEur(b.initial))}</td></tr>
+        <tr><td>Ajouts exceptionnels</td><td style="text-align:right;">${esc(fmtEur(b.additionsTotal))}</td></tr>
+        <tr><td><b>Budget disponible</b></td><td style="text-align:right;"><b>${esc(fmtEur(b.available))}</b></td></tr>
         <tr><td>Total des dépenses</td><td style="text-align:right;">${esc(fmtEur(total))}</td></tr>
-        <tr><td>Montant restant</td><td style="text-align:right;">${b.remaining != null ? esc(fmtEur(b.remaining)) : "-"}</td></tr>
+        <tr><td><b>Solde restant</b></td><td style="text-align:right;"><b>${esc(fmtEur(b.remaining))}</b></td></tr>
+        ${(session.additions ?? []).map((a) => `<tr><td class="muted">Ajout du ${esc(new Date(a.date).toLocaleDateString("fr-FR"))}${a.reason ? ` (${esc(a.reason)})` : ""}</td><td style="text-align:right;" class="muted">+${esc(fmtEur(a.amount))}</td></tr>`).join("")}
+        ${session.closure ? `<tr><td>Clôture</td><td style="text-align:right;">${esc(new Date(session.closure.closedAt).toLocaleDateString("fr-FR"))} · solde final ${esc(fmtEur(session.closure.finalBalance))}</td></tr>` : ""}
         <tr><td>Dépenses à classer</td><td style="text-align:right;">${b.unclassifiedCount} (${esc(fmtEur(b.unclassifiedTotal))})</td></tr>
       </tbody>
     </table>

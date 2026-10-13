@@ -16,7 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@react-native-vector-icons/ionicons";
 
 import { eventsRepo, tasksRepo } from "@/src/lib/storage";
-import { cancelReminders, scheduleEventReminders } from "@/src/lib/notifications";
+import { cancelEventReminders, scheduleEventReminders } from "@/src/lib/notifications";
+import { NotifBanner } from "@/src/components/notif-banner";
 import { computeDeparture, departureExplanation, formatDateFr, localIso } from "@/src/lib/time";
 import { pendingTasks, setTaskStatus } from "@/src/lib/tasks";
 import { useChildColors } from "@/src/lib/child-colors";
@@ -86,6 +87,8 @@ export default function Agenda() {
         <Text style={styles.title}>Agenda</Text>
         <Text style={styles.subtitle}>Rendez-vous, rappels et préparations</Text>
       </View>
+
+      <NotifBanner />
 
       <View style={styles.segment} testID="agenda-segment">
         {(["rdv", "prep"] as const).map((k) => {
@@ -267,7 +270,7 @@ function EventForm(props: {
 
   const save = async () => {
     const old = props.initial;
-    if (old?.notificationIds) await cancelReminders(old.notificationIds);
+    await cancelEventReminders(old);
 
     const ev: AgendaEvent = {
       id: old?.id ?? `evt-${uuid()}`,
@@ -293,7 +296,7 @@ function EventForm(props: {
 
   const remove = async () => {
     if (!props.initial) return;
-    await cancelReminders(props.initial.notificationIds);
+    await cancelEventReminders(props.initial);
     await eventsRepo.remove(props.initial.id);
     props.onSaved();
   };

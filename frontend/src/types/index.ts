@@ -2,15 +2,39 @@
 
 export type ExpenseCategory = "alimentation" | "entretien" | "animation" | "divers";
 
-export type PaymentMethod = "especes" | "carte" | "autre";
+export type PaymentMethod = "especes" | "carte" | "autre"; // "autre" : valeur historique, affichee "A verifier"
 
 export interface Session {
   id: string;
   label: string; // "Session du 1er au 15 octobre 2026"
   startDate: string; // ISO date
   endDate: string; // ISO date
-  budget?: number; // budget initial (EUR), defini manuellement
+  budget?: number; // budget initial recu (EUR). Absent = 0
+  carryOver?: CarryOver; // report provenant de la session precedente
+  additions?: MoneyAddition[]; // ajouts exceptionnels, conserves separement
+  closure?: SessionClosure; // present = session cloturee
+  lastTransfer?: { toSessionId: string; amount: number }; // report deja effectue avant une reouverture
   createdAt: string;
+}
+
+export interface CarryOver {
+  amount: number; // peut etre negatif (depassement reporte)
+  fromSessionId: string | null; // null = saisie manuelle (aucune session source)
+}
+
+export interface MoneyAddition {
+  id: string;
+  date: string; // ISO datetime
+  amount: number; // > 0
+  reason?: string;
+}
+
+export interface SessionClosure {
+  closedAt: string; // ISO datetime
+  finalBalance: number;
+  carryStatus: "pending" | "transferred" | "declined";
+  transferredToSessionId?: string;
+  transferredAmount?: number;
 }
 
 export interface Expense {
@@ -19,10 +43,11 @@ export interface Expense {
   date: string; // YYYY-MM-DD
   merchant: string;
   amount: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PaymentMethod | null; // null = a verifier
   category: ExpenseCategory | null; // null = "A classer" (categorie non confirmee)
   comment: string;
-  photoUri?: string; // local URI
+  photoUri?: string; // justificatif valide (recadre ou non), utilise pour l'OCR et le PDF
+  originalPhotoUri?: string; // photo originale conservee
   createdAt: string;
 }
 
@@ -43,19 +68,16 @@ export interface AgendaEvent {
   status: EventStatus;
   notificationIds?: string[];
   reminders?: ReminderPrefs;
+  handledReminders?: ReminderKind[]; // rappels marques "traites"
   createdAt: string;
 }
 
-// Codes internes des enfants. A, B, C : fratrie 1 ; D, E : fratrie 2 (du plus jeune au plus age).
-// Ce sont des codes internes : ils ne garantissent pas l'anonymat.
+// Codes internes neutres A-E : chaque maison les utilise selon son organisation.
+// Aucune signification imposee (ni fratrie, ni age). Ils ne garantissent pas l'anonymat.
 export type ChildCode = "A" | "B" | "C" | "D" | "E";
-export const CHILD_CODES: { code: ChildCode; group: 1 | 2 }[] = [
-  { code: "A", group: 1 },
-  { code: "B", group: 1 },
-  { code: "C", group: 1 },
-  { code: "D", group: 2 },
-  { code: "E", group: 2 },
-];
+export const CHILD_CODES: { code: ChildCode }[] = [{ code: "A" }, { code: "B" }, { code: "C" }, { code: "D" }, { code: "E" }];
+
+export type ReminderKind = "h1" | "m30" | "departure" | "m5";
 
 export interface ReminderPrefs {
   h1: boolean; // T - 1 h
@@ -80,7 +102,7 @@ export interface Task {
 }
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   todo: "À faire",
-  done: "Fait",
+  done: "Terminée",
   reporte: "Reporté",
 };
 
@@ -91,15 +113,23 @@ export const EXPENSE_CATEGORIES: { key: ExpenseCategory; label: string; icon: st
   { key: "divers", label: "Divers", icon: "ellipsis-horizontal-outline" },
 ];
 
-export const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
-  { key: "especes", label: "Especes", icon: "cash-outline" },
-  { key: "carte", label: "Carte", icon: "card-outline" },
-  { key: "autre", label: "Autre", icon: "wallet-outline" },
+export const PAYMENT_METHODS: { key: PaymentMethod; label: string; short: string; icon: string }[] = [
+  { key: "especes", label: "Espèces (ESP)", short: "ESP", icon: "cash-outline" },
+  { key: "carte", label: "Carte bancaire (CB)", short: "CB", icon: "card-outline" },
 ];
 
+export function paymentLabel(p: PaymentMethod | null | undefined): string {
+  return p === "especes" ? "ESP" : p === "carte" ? "CB" : "À vérifier";
+}
+
+// Une depense est "a verifier" si son motif ou son mode de paiement n'est pas confirme
+export function needsReview(e: Pick<Expense, "category" | "paymentMethod">): boolean {
+  return !e.category || (e.paymentMethod !== "especes" && e.paymentMethod !== "carte");
+}
+
 export const EVENT_STATUS_LABEL: Record<EventStatus, string> = {
-  prevu: "Prevu",
-  effectue: "Effectue",
-  annule: "Annule",
-  reporte: "Reporte",
+  prevu: "Prévu",
+  effectue: "Réalisé",
+  annule: "Annulé",
+  reporte: "Reporté",
 };
