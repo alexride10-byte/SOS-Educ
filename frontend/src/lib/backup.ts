@@ -2,10 +2,12 @@
 // Le fichier contient des donnees sensibles : a conserver dans un emplacement maitrise.
 import { Platform } from "react-native";
 import { File, Paths } from "expo-file-system";
+import * as DocumentPicker from "expo-document-picker";
 import * as Sharing from "expo-sharing";
 
 import { clearPhotos, photoDataUri, restorePhoto } from "./photo-store";
-import { cancelAllReminders } from "./notifications";
+import { cancelAllReminders, scheduleEventReminders } from "./notifications";
+import { saveTask } from "./tasks";
 import { clearAll, eventsRepo, expensesRepo, KEYS, kv, replaceAll, sessionsRepo, tasksRepo } from "./storage";
 import { localIso } from "./time";
 import { AgendaEvent, Expense, Session, Task } from "@/src/types";
@@ -89,15 +91,27 @@ export async function restoreBackup(json: string): Promise<void> {
   await replaceAll({
     sessions: b.sessions,
     expenses: b.expenses.map((e) => ({ ...e, photoUri: mapUri(e.photoUri), originalPhotoUri: mapUri(e.originalPhotoUri) })),
-    // Les rappels ne sont pas reprogrammes automatiquement : ils le seront a la prochaine modification
     events: (b.events ?? []).map((e) => ({ ...e, notificationIds: [] })),
     tasks: (b.tasks ?? []).map((t) => ({ ...t, notificationId: undefined })),
   });
   await kv.set(KEYS.childColors, b.childColors ?? {});
+  // Rappels reprogrammes sur cet appareil (ceux deja passes sont ignores)
+  for (const e of await eventsRepo.list()) {
+    if (e.status === "prevu") await eventsRepo.save({ ...e, notificationIds: await scheduleEventReminders(e) });
+  }
+  for (const t of await tasksRepo.list()) await saveTask(t);
 }
 
-// Choix d'un fichier de sauvegarde (web uniquement)
-export function pickBackupFile(): Promise<string | null> {
+// Choix d'un fichier de sauvegarde
+export async function pickBackupFile(): Promise<string | null> {
+  if (Platform.OS !== "web") {
+    const res = await DocumentPicker.getDocumentAsync({ type: ["application/json", "*/*"], copyToCacheDirectory: true });
+    if (res.canceled || !res.assets?.length) return null;
+    const file = new File(res.assets[0].uri);
+    const text = await file.text();
+    file.delete();
+    return text;
+  }
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";

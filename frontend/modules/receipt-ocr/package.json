@@ -1,0 +1,7 @@
+{
+  "name": "receipt-ocr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lecture locale des tickets (Google ML Kit, modele latin embarque, sans reseau)",
+  "main": "index.ts"
+}

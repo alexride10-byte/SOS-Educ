@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 // Lecture des tickets (texte OCR -> champs). Lancer : npx jest
-import { parseAmount, parseDate, parsePayment, parseReceiptText } from "@/src/lib/receipt-parse";
+import { parseAmount, parseDate, parsePayment, parseReceiptText, rowsFromLines } from "@/src/lib/receipt-parse";
 
 const TODAY = new Date(2026, 9, 28);
 
@@ -64,5 +64,22 @@ describe("lecture de ticket", () => {
 
   it("enseigne inconnue : motif à classer", () => {
     expect(parseReceiptText("MAGASIN XYZ\nTOTAL 12,00", TODAY).category).toBeNull();
+  });
+});
+
+describe("reconstitution des lignes (OCR natif par colonnes)", () => {
+  it("rapproche libellé et montant lus séparément", () => {
+    // Colonne de gauche puis colonne de droite, comme ML Kit les renvoie souvent
+    const lines = [
+      { text: "SUPER U", left: 10, top: 0, bottom: 20 },
+      { text: "TOTAL TTC", left: 10, top: 100, bottom: 120 },
+      { text: "TVA 5,5%", left: 10, top: 130, bottom: 150 },
+      { text: "CB SANS CONTACT", left: 10, top: 160, bottom: 180 },
+      { text: "10,54", left: 300, top: 103, bottom: 121 }, // légère inclinaison
+      { text: "0,40", left: 300, top: 132, bottom: 151 },
+      { text: "10,54", left: 300, top: 161, bottom: 181 },
+    ];
+    expect(rowsFromLines(lines)).toEqual(["SUPER U", "TOTAL TTC  10,54", "TVA 5,5%  0,40", "CB SANS CONTACT  10,54"]);
+    expect(parseReceiptText(rowsFromLines(lines).join("\n"), TODAY).amount).toBe(10.54);
   });
 });

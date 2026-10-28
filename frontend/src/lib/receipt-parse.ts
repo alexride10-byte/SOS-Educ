@@ -14,7 +14,7 @@ export interface ParsedReceipt {
 function norm(s: string): string {
   return s
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase();
 }
 
@@ -104,6 +104,32 @@ export function parseMerchant(rawLines: string[]): string | null {
     return l.replace(/\s{2,}/g, " ").slice(0, 40);
   }
   return null;
+}
+
+export interface PositionedLine {
+  text: string;
+  left: number;
+  top: number;
+  bottom: number;
+}
+
+// L'OCR natif lit souvent par colonnes (libelles d'un cote, montants de l'autre).
+// On regroupe les morceaux places a la meme hauteur pour retrouver les lignes du ticket.
+export function rowsFromLines(lines: PositionedLine[]): string[] {
+  const mid = (l: PositionedLine) => (l.top + l.bottom) / 2;
+  const rows: PositionedLine[][] = [];
+  for (const l of [...lines].sort((a, b) => mid(a) - mid(b))) {
+    const row = rows[rows.length - 1];
+    const ref = row?.[0];
+    if (ref && Math.abs(mid(l) - mid(ref)) < Math.max(4, (ref.bottom - ref.top) * 0.6)) row.push(l);
+    else rows.push([l]);
+  }
+  return rows.map((r) =>
+    r
+      .sort((a, b) => a.left - b.left)
+      .map((x) => x.text)
+      .join("  "),
+  );
 }
 
 export function parseReceiptText(text: string, today: Date = new Date()): ParsedReceipt {

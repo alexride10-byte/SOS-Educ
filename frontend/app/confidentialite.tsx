@@ -72,6 +72,7 @@ export default function Confidentialite() {
             sont enregistrés uniquement {isWeb ? "dans le navigateur de ce téléphone" : "dans ce téléphone"}.
           </P>
           <P>La lecture des tickets se fait sur l’appareil : la photo n’est envoyée à personne.</P>
+          {!isWeb && <P>L’appli n’a même pas l’autorisation d’accéder à Internet : elle ne peut rien envoyer.</P>}
         </Section>
 
         <Section icon="list-outline" title="Ce qui est enregistré">
@@ -104,9 +105,7 @@ export default function Confidentialite() {
         )}
 
         <Action icon="download-outline" label="Exporter une sauvegarde" onPress={onExport} busy={busy === "export"} testID="backup-btn" />
-        {isWeb && (
-          <Action icon="cloud-upload-outline" label="Restaurer une sauvegarde" onPress={onRestore} busy={busy === "restore"} testID="restore-btn" />
-        )}
+        <Action icon="cloud-upload-outline" label="Restaurer une sauvegarde" onPress={onRestore} busy={busy === "restore"} testID="restore-btn" />
         <Action
           icon="trash-outline"
           label="Effacer toutes mes données"
