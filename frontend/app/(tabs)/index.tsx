@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@react-native-vector-icons/ionicons";
 
@@ -14,6 +14,7 @@ import { AgendaEvent, Task, needsReview } from "@/src/types";
 import { NewSessionSheet } from "@/src/components/new-session-sheet";
 import { eraseAllData } from "@/src/lib/backup";
 import { confirmAction } from "@/src/lib/confirm";
+import { appUrl } from "@/src/lib/base-url";
 
 export default function Home() {
   const styles = useStyles();
@@ -184,6 +185,12 @@ export default function Home() {
           subtitle="Rendez-vous, rappels, préparations"
           onPress={() => router.push("/(tabs)/agenda")}
         />
+        {Platform.OS === "web" && (
+          <Pressable onPress={() => window.location.assign(appUrl("caresync.apk"))} testID="android-apk-link" style={styles.backupBtn}>
+            <Ionicons name="logo-android" size={18} color={colors.muted} />
+            <Text style={styles.backupText}>Installer l’appli Android (rappels sonores)</Text>
+          </Pressable>
+        )}
         <Pressable onPress={() => router.push("/confidentialite")} testID="privacy-link" style={styles.backupBtn}>
           <Ionicons name="shield-checkmark-outline" size={18} color={colors.muted} />
           <Text style={styles.backupText}>Données et confidentialité · sauvegarde</Text>

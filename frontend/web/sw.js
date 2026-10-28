@@ -21,6 +21,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
+  if (new URL(req.url).pathname.endsWith(".apk")) return; // telechargement direct, jamais mis en cache
 
   // Pages : reseau d'abord (nouvelle version), sinon l'appli en cache
   if (req.mode === "navigate") {
