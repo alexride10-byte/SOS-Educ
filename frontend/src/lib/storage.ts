@@ -10,8 +10,6 @@ const K = {
   events: "cs.events.v1",
   tasks: "cs.tasks.v1",
   childColors: "cs.childColors.v1",
-  migratedV2: "cs.migrated.v2",
-  legacyTrips: "cs.trips.v1",
   seeded: "cs.seeded.v1",
 };
 
@@ -25,73 +23,31 @@ async function readList<T>(key: string): Promise<T[]> {
   }
 }
 
-async function writeList<T>(key: string, items: T[]): Promise<void> {
-  await AsyncStorage.setItem(key, JSON.stringify(items));
+const writeList = <T>(key: string, items: T[]) => AsyncStorage.setItem(key, JSON.stringify(items));
+
+// Liste d'objets identifies : lecture, ajout/mise a jour (les nouveaux en tete), suppression
+function repo<T extends { id: string }>(key: string) {
+  return {
+    list: () => readList<T>(key),
+    save: async (item: T) => {
+      const items = await readList<T>(key);
+      const idx = items.findIndex((x) => x.id === item.id);
+      if (idx >= 0) items[idx] = item;
+      else items.unshift(item);
+      await writeList(key, items);
+    },
+    remove: async (id: string) => writeList(key, (await readList<T>(key)).filter((x) => x.id !== id)),
+  };
 }
 
-export const sessionsRepo = {
-  list: () => readList<Session>(K.sessions),
-  save: async (s: Session) => {
-    const items = await readList<Session>(K.sessions);
-    const idx = items.findIndex((x) => x.id === s.id);
-    if (idx >= 0) items[idx] = s;
-    else items.unshift(s);
-    await writeList(K.sessions, items);
-  },
-  remove: async (id: string) => {
-    const items = (await readList<Session>(K.sessions)).filter((x) => x.id !== id);
-    await writeList(K.sessions, items);
-  },
-};
-
-export const expensesRepo = {
-  list: () => readList<Expense>(K.expenses),
-  save: async (e: Expense) => {
-    const items = await readList<Expense>(K.expenses);
-    const idx = items.findIndex((x) => x.id === e.id);
-    if (idx >= 0) items[idx] = e;
-    else items.unshift(e);
-    await writeList(K.expenses, items);
-  },
-  remove: async (id: string) => {
-    const items = (await readList<Expense>(K.expenses)).filter((x) => x.id !== id);
-    await writeList(K.expenses, items);
-  },
-};
-
-export const eventsRepo = {
-  list: () => readList<AgendaEvent>(K.events),
-  save: async (e: AgendaEvent) => {
-    const items = await readList<AgendaEvent>(K.events);
-    const idx = items.findIndex((x) => x.id === e.id);
-    if (idx >= 0) items[idx] = e;
-    else items.unshift(e);
-    await writeList(K.events, items);
-  },
-  remove: async (id: string) => {
-    const items = (await readList<AgendaEvent>(K.events)).filter((x) => x.id !== id);
-    await writeList(K.events, items);
-  },
-};
-
-export const tasksRepo = {
-  list: () => readList<Task>(K.tasks),
-  save: async (t: Task) => {
-    const items = await readList<Task>(K.tasks);
-    const idx = items.findIndex((x) => x.id === t.id);
-    if (idx >= 0) items[idx] = t;
-    else items.unshift(t);
-    await writeList(K.tasks, items);
-  },
-  remove: async (id: string) => {
-    const items = (await readList<Task>(K.tasks)).filter((x) => x.id !== id);
-    await writeList(K.tasks, items);
-  },
-};
+export const sessionsRepo = repo<Session>(K.sessions);
+export const expensesRepo = repo<Expense>(K.expenses);
+export const eventsRepo = repo<AgendaEvent>(K.events);
+export const tasksRepo = repo<Task>(K.tasks);
 
 export const KEYS = K;
 
-// Petites valeurs (reglages, drapeaux de migration)
+// Petites valeurs (reglages)
 export const kv = {
   get: async <T>(key: string, fallback: T): Promise<T> => {
     const raw = await AsyncStorage.getItem(key);
@@ -110,14 +66,11 @@ export const seededFlag = {
   set: () => AsyncStorage.setItem(K.seeded, "1"),
 };
 
-// Efface toutes les donnees. Les drapeaux "demo deja chargee" et "migration faite" sont reposes :
+// Efface toutes les donnees. Le drapeau "demo deja chargee" est repose :
 // l'app redemarre vide, sans recharger les donnees de demonstration.
 export async function clearAll() {
   await AsyncStorage.multiRemove(Object.values(K));
-  await AsyncStorage.multiSet([
-    [K.seeded, "1"],
-    [K.migratedV2, "true"],
-  ]);
+  await seededFlag.set();
 }
 
 // Remplacement complet (restauration d'une sauvegarde)

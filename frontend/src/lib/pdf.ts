@@ -6,7 +6,7 @@ import { Platform } from "react-native";
 import { computeBudget, fmtEur, round2 } from "./money";
 import { photoDataUri } from "./photo-store";
 import { printHtmlWeb } from "./print-html";
-import { EXPENSE_CATEGORIES, Expense, PaymentMethod, Session, paymentLabel } from "@/src/types";
+import { EXPENSE_CATEGORIES, Expense, Session, paymentLabel } from "@/src/types";
 
 function esc(s: string | number | null | undefined) {
   if (s === null || s === undefined) return "";
@@ -21,9 +21,6 @@ const frDate = (iso: string) => iso.split("-").reverse().join("/");
 function catLabel(k: string | null) {
   if (!k) return "À classer";
   return EXPENSE_CATEGORIES.find((c) => c.key === k)?.label ?? k;
-}
-function payLabel(k: PaymentMethod | null) {
-  return paymentLabel(k);
 }
 
 export async function exportSessionPdf(session: Session, expenses: Expense[]) {
@@ -57,7 +54,7 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
         <td>${esc(frDate(e.date))}</td>
         <td>${esc(e.merchant)}</td>
         <td>${esc(catLabel(e.category))}</td>
-        <td>${esc(payLabel(e.paymentMethod))}</td>
+        <td>${esc(paymentLabel(e.paymentMethod))}</td>
         <td style="text-align:right;">${esc(e.amount.toFixed(2))} &euro;</td>
         <td>${e.photoUri ? (photoData[e.id] ? "Oui" : "Introuvable") : "Non"}</td>
       </tr>`,

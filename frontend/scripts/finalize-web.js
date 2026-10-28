@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global __dirname */
 // Finalise l'export web (apres `expo export -p web`) pour en faire une appli installable hors ligne :
 //  - moteur OCR local (Tesseract + modele francais) copie dans dist/tesseract
 //  - manifeste, icones, balises iPhone/Android et enregistrement du service worker dans index.html

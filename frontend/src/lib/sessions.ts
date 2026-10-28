@@ -1,13 +1,10 @@
 // Operations sur les sessions : creation avec report, ajouts, cloture, reouverture.
 // Toutes les valeurs sont relues depuis le stockage (jamais depuis l'affichage).
 import { computeBudget, round2 } from "./money";
+import { newId } from "./id";
 import { localIso } from "./time";
 import { expensesRepo, sessionsRepo } from "./storage";
 import { Session } from "@/src/types";
-
-function uid(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-}
 
 function shortDate(iso: string) {
   const [y, m, d] = iso.split("-");
@@ -46,7 +43,7 @@ export async function createSession(input: {
     carry = { amount: source.closure.finalBalance, fromSessionId: source.id };
   }
   const session: Session = {
-    id: uid("sess"),
+    id: newId("sess"),
     label: sessionLabel(input.startDate, input.endDate),
     startDate: input.startDate,
     endDate: input.endDate ?? "",
@@ -72,7 +69,7 @@ export async function addMoney(sessionId: string, amount: number, reason?: strin
   if (!(amount > 0)) throw new Error("Montant invalide.");
   await sessionsRepo.save({
     ...s,
-    additions: [...(s.additions ?? []), { id: uid("add"), date: new Date().toISOString(), amount: round2(amount), reason: reason?.trim() || undefined }],
+    additions: [...(s.additions ?? []), { id: newId("add"), date: new Date().toISOString(), amount: round2(amount), reason: reason?.trim() || undefined }],
   });
 }
 

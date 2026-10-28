@@ -9,7 +9,6 @@ import {
   ScrollView,
   Switch,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -35,10 +34,8 @@ import {
   Task,
 } from "@/src/types";
 import { MonthGrid } from "@/src/components/month-grid";
-
-function uuid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+import { newId } from "@/src/lib/id";
+import { Field } from "@/src/components/field";
 
 const STATUS_KEY: Record<EventStatus, "info" | "success" | "error" | "warning"> = {
   prevu: "info",
@@ -273,7 +270,7 @@ function EventForm(props: {
     await cancelEventReminders(old);
 
     const ev: AgendaEvent = {
-      id: old?.id ?? `evt-${uuid()}`,
+      id: old?.id ?? newId("evt"),
       title: title.trim() || "Sans titre",
       childCode,
       reminders,
@@ -316,7 +313,7 @@ function EventForm(props: {
         </View>
 
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}>
-          <F label="Titre" value={title} onChangeText={setTitle} testID="field-title" />
+          <Field label="Titre" value={title} onChangeText={setTitle} testID="field-title" />
           <Text style={styles.fieldLabel}>Enfant (code interne, facultatif)</Text>
           <View style={styles.chipRow}>
             <Pressable
@@ -341,13 +338,13 @@ function EventForm(props: {
               );
             })}
           </View>
-          <F label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} testID="field-event-date" />
-          <F label="Heure (HH:MM)" value={time} onChangeText={setTime} testID="field-event-time" />
-          <F label="Lieu" value={location} onChangeText={setLocation} testID="field-location" />
+          <Field label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} testID="field-event-date" />
+          <Field label="Heure (HH:MM)" value={time} onChangeText={setTime} testID="field-event-time" />
+          <Field label="Lieu" value={location} onChangeText={setLocation} testID="field-location" />
 
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
-              <F
+              <Field
                 label="Duree (min)"
                 value={durationMin}
                 onChangeText={setDurationMin}
@@ -356,7 +353,7 @@ function EventForm(props: {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <F
+              <Field
                 label="Trajet (min)"
                 value={travelMin}
                 onChangeText={setTravelMin}
@@ -365,7 +362,7 @@ function EventForm(props: {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <F
+              <Field
                 label="Marge (min)"
                 value={bufferMin}
                 onChangeText={setBufferMin}
@@ -436,10 +433,10 @@ function EventForm(props: {
             </View>
           )}
 
-          <F label="Commentaire" value={comment} onChangeText={setComment} multiline testID="field-event-comment" />
+          <Field label="Commentaire" value={comment} onChangeText={setComment} multiline testID="field-event-comment" />
 
           {props.initial && status !== "prevu" && (
-            <F
+            <Field
               label="Commentaire après le rendez-vous (court)"
               value={postComment}
               onChangeText={setPostComment}
@@ -463,32 +460,6 @@ function EventForm(props: {
         </View>
       </KeyboardAvoidingView>
     </Modal>
-  );
-}
-
-function F(p: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  keyboardType?: any;
-  multiline?: boolean;
-  testID?: string;
-}) {
-  const styles = useStyles();
-  const { colors } = useTheme();
-  return (
-    <View style={{ marginTop: spacing.md }}>
-      <Text style={styles.fieldLabel}>{p.label}</Text>
-      <TextInput
-        value={p.value}
-        onChangeText={p.onChangeText}
-        placeholderTextColor={colors.muted}
-        keyboardType={p.keyboardType}
-        multiline={p.multiline}
-        style={[styles.input, p.multiline && { height: 80, textAlignVertical: "top" }]}
-        testID={p.testID}
-      />
-    </View>
   );
 }
 
@@ -599,17 +570,6 @@ const useStyles = makeStyles((colors) => ({
   departureLabel: { fontSize: 12, color: colors.brandPrimary, fontWeight: "600" },
   departureValue: { fontSize: 22, fontWeight: "700", color: colors.brandPrimary },
   fieldLabel: { fontSize: 12, color: colors.muted, fontWeight: "600", marginBottom: 6, marginTop: spacing.md },
-  input: {
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: 15,
-    color: colors.onSurface,
-    minHeight: 48,
-  },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: 4 },
   selectChip: {
     paddingHorizontal: spacing.md,

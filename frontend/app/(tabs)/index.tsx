@@ -308,6 +308,4 @@ const useStyles = makeStyles((colors) => ({
   },
   moduleTitle: { fontSize: 17, fontWeight: "700", color: colors.onSurface },
   moduleSub: { fontSize: 13, color: colors.muted, marginTop: 2 },
-  taskRow: { flexDirection: "row", alignItems: "center", paddingVertical: 6 },
-  taskText: { marginLeft: spacing.sm, color: colors.onSurfaceSecondary, fontSize: 14 },
 }));
