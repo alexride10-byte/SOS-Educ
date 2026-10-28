@@ -84,3 +84,9 @@ plus tard, il suffit de wrapper ces repos sans toucher aux ecrans.
 - Ecran « Donnees et confidentialite » (`app/confidentialite.tsx`) : sauvegarde (photos comprises),
   restauration (web), effacement total ; bandeau « Commencer avec une appli vide » pour quitter la demo
 - Controle du montant et de la date d'une depense ; Compta sans session : invitation a creer une session
+
+## Nettoyage (oct. 2026)
+- Supprimes : backend Python (OCR par IA distante), fichiers des agents de test Emergent, migration v2
+  (les donnees de demo sont creees en une fois par src/lib/seed.ts), 12 dependances inutilisees
+  (dont react-native-webview, react-query, keyboard-controller, secure-store)
+- Factorises : depots de stockage (repo generique), identifiants (src/lib/id.ts), champ de saisie (src/components/field.tsx)

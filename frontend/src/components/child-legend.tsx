@@ -96,7 +96,6 @@ const useStyles = makeStyles((colors) => ({
   },
   row: { flexDirection: "row", alignItems: "center" },
   item: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  groupSep: { width: 1, height: 24, backgroundColor: colors.border, marginHorizontal: 4 },
   caption: { fontSize: 11, color: colors.muted, marginTop: 2, paddingHorizontal: 4 },
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
   picker: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, width: 300 },

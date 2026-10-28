@@ -11,8 +11,7 @@ export function computeDeparture(timeHHmm: string, travelMin: number, bufferMin:
 
 export function formatDateFr(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" });
+    return parseLocal(iso).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" });
   } catch {
     return iso;
   }

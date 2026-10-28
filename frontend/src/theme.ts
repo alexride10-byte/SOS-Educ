@@ -76,8 +76,7 @@ const dark: typeof light = {
 
 export type ThemeColors = typeof light;
 
-export const themes: { light: ThemeColors; dark: ThemeColors } = { light, dark };
-export const defaultScheme: ColorScheme = "light";
+const themes: { light: ThemeColors; dark: ThemeColors } = { light, dark };
 
 // ---------- Theme context (manual override + system) ----------
 type Preference = "system" | ColorScheme;
@@ -85,8 +84,6 @@ type Preference = "system" | ColorScheme;
 interface ThemeCtx {
   scheme: ColorScheme;
   colors: ThemeColors;
-  preference: Preference;
-  setPreference: (p: Preference) => void;
   toggle: () => void;
 }
 
@@ -120,18 +117,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     () => ({
       scheme,
       colors: themes[scheme],
-      preference,
-      setPreference: (p) => {
-        setPrefState(p);
-        AsyncStorage.setItem(STORAGE_KEY, p).catch(() => {});
-      },
       toggle: () => {
         const next: Preference = scheme === "dark" ? "light" : "dark";
         setPrefState(next);
         AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
       },
     }),
-    [scheme, preference],
+    [scheme],
   );
 
   return createElement(Ctx.Provider, { value }, children);
@@ -144,15 +136,9 @@ export function useTheme(): ThemeCtx {
   return {
     scheme: "light",
     colors: light,
-    preference: "system",
-    setPreference: () => {},
     toggle: () => {},
   };
 }
-
-// Deprecated static export kept for backwards compat (points to light defaults).
-// Prefer useTheme().colors or makeStyles((colors) => ...).
-export const colors = light;
 
 // Themed StyleSheet factory: returns a hook that rebuilds the sheet when the scheme changes.
 export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(

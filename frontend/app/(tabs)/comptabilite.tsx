@@ -10,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -42,10 +41,8 @@ import {
   needsReview,
   paymentLabel,
 } from "@/src/types";
-
-function uuid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+import { newId } from "@/src/lib/id";
+import { Field } from "@/src/components/field";
 
 export default function Comptabilite() {
   const styles = useStyles();
@@ -378,7 +375,7 @@ function ExpenseFormModal(props: {
       const storedOriginal =
         originalPhotoUri && originalPhotoUri !== photoUri ? await storePhoto(originalPhotoUri) : storedPhoto;
       const exp: Expense = {
-        id: props.initial?.id ?? `exp-${uuid()}`,
+        id: props.initial?.id ?? newId("exp"),
         sessionId: props.sessionId,
         date,
         merchant: merchant.trim(),
@@ -576,34 +573,6 @@ function PhotoThumb({ uri }: { uri: string }) {
   return <Image source={{ uri: src }} style={styles.thumb} contentFit="contain" testID="expense-photo-thumb" />;
 }
 
-function Field(props: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder?: string;
-  keyboardType?: any;
-  multiline?: boolean;
-  testID?: string;
-}) {
-  const styles = useStyles();
-  const { colors } = useTheme();
-  return (
-    <View style={{ marginTop: spacing.md }}>
-      <Text style={styles.fieldLabel}>{props.label}</Text>
-      <TextInput
-        value={props.value}
-        onChangeText={props.onChangeText}
-        placeholder={props.placeholder}
-        placeholderTextColor={colors.muted}
-        keyboardType={props.keyboardType}
-        multiline={props.multiline}
-        style={[styles.input, props.multiline && { height: 80, textAlignVertical: "top" }]}
-        testID={props.testID}
-      />
-    </View>
-  );
-}
-
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
@@ -625,30 +594,6 @@ const useStyles = makeStyles((colors) => ({
   chipText: { fontSize: 13, color: colors.onSurfaceSecondary, fontWeight: "600" },
   chipTextSelected: { color: colors.onBrand },
   chipAdd: { backgroundColor: colors.brandSecondary, borderColor: colors.brandSecondary },
-  totalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    padding: spacing.lg,
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  totalLabel: { fontSize: 12, color: colors.muted },
-  totalValue: { fontSize: 22, fontWeight: "700", color: colors.onSurface, marginTop: 2 },
-  exportBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: colors.brandPrimary,
-    paddingHorizontal: spacing.md,
-    height: 44,
-    borderRadius: radius.md,
-  },
-  exportText: { color: colors.onBrand, fontWeight: "700" },
   expenseRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -746,17 +691,6 @@ const useStyles = makeStyles((colors) => ({
   },
   ocrText: { color: colors.onSurface, flex: 1, fontSize: 13 },
   fieldLabel: { fontSize: 12, color: colors.muted, fontWeight: "600", marginBottom: 6, marginTop: spacing.md },
-  input: {
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: 15,
-    color: colors.onSurface,
-    minHeight: 48,
-  },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: 4 },
   selectChip: {
     flexDirection: "row",

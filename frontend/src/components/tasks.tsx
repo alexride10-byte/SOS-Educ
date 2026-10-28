@@ -9,10 +9,7 @@ import { deleteTask, saveTask } from "@/src/lib/tasks";
 import { dayBefore, formatDateFr, localIso } from "@/src/lib/time";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { AgendaEvent, Task, TaskStatus, TASK_STATUS_LABEL } from "@/src/types";
-
-function uuid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+import { newId } from "@/src/lib/id";
 
 export function TaskRow(props: { task: Task; event?: AgendaEvent; onToggle: () => void; onPress?: () => void }) {
   const styles = useStyles();
@@ -102,7 +99,7 @@ export function TaskForm(props: {
   const save = async () => {
     if (!title.trim()) return;
     const t: Task = {
-      id: props.initial?.id ?? `task-${uuid()}`,
+      id: props.initial?.id ?? newId("task"),
       title: title.trim(),
       dueDate: dueDate || undefined,
       dueTime: dueTime || undefined,
