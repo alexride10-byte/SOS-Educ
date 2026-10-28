@@ -1,8 +1,11 @@
 // Generation PDF locale (via expo-print + partage via expo-sharing).
+// Sur le web : impression du navigateur ("Enregistrer en PDF"), voir print-html.web.ts.
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { File } from "expo-file-system";
-import { computeBudget, fmtEur } from "./money";
+import { Platform } from "react-native";
+import { computeBudget, fmtEur, round2 } from "./money";
+import { photoDataUri } from "./photo-store";
+import { printHtmlWeb } from "./print-html";
 import { EXPENSE_CATEGORIES, Expense, PaymentMethod, Session, paymentLabel } from "@/src/types";
 
 function esc(s: string | number | null | undefined) {
@@ -12,6 +15,8 @@ function esc(s: string | number | null | undefined) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
+
+const frDate = (iso: string) => iso.split("-").reverse().join("/");
 
 function catLabel(k: string | null) {
   if (!k) return "À classer";
@@ -25,6 +30,12 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
   const items = expenses.filter((e) => e.sessionId === session.id);
   const b = computeBudget(session, items);
   const total = b.total;
+  const byPay = (p: "especes" | "carte" | null) =>
+    round2(
+      items
+        .filter((e) => (p ? e.paymentMethod === p : e.paymentMethod !== "especes" && e.paymentMethod !== "carte"))
+        .reduce((sum, e) => sum + e.amount, 0),
+    );
 
   // Totaux par categorie (depenses classees uniquement)
   const byCat: Record<string, number> = {};
@@ -34,12 +45,8 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
   const photoData: Record<string, string> = {};
   for (const e of items) {
     if (!e.photoUri) continue;
-    try {
-      const f = new File(e.photoUri);
-      if (f.exists) photoData[e.id] = `data:image/jpeg;base64,${await f.base64()}`;
-    } catch {
-      // photo introuvable : signalee dans le tableau
-    }
+    const data = await photoDataUri(e.photoUri); // null = photo introuvable, signalee dans le tableau
+    if (data) photoData[e.id] = data;
   }
 
   const rows = items
@@ -47,7 +54,7 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
     .map(
       (e) => `
       <tr>
-        <td>${esc(e.date)}</td>
+        <td>${esc(frDate(e.date))}</td>
         <td>${esc(e.merchant)}</td>
         <td>${esc(catLabel(e.category))}</td>
         <td>${esc(payLabel(e.paymentMethod))}</td>
@@ -63,7 +70,7 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
       (e) => `
       <div style="page-break-before: always; padding-top:8px;">
         <div style="font-size:12px;color:#374151;margin-bottom:6px;">
-          ${esc(e.date)} &middot; ${esc(e.merchant)} &middot; ${esc(e.amount.toFixed(2))} &euro;
+          ${esc(frDate(e.date))} &middot; ${esc(e.merchant)} &middot; ${esc(e.amount.toFixed(2))} &euro;
         </div>
         <img src="${photoData[e.id]}" style="max-width:100%;max-height:880px;border:1px solid #e5e7eb;border-radius:8px;" />
       </div>`,
@@ -97,10 +104,10 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
   </head>
   <body>
     <h1>${esc(session.label)}</h1>
-    <div class="muted">Du ${esc(session.startDate)} au ${esc(session.endDate)}</div>
-    <div style="margin-top:8px;"><span class="pill">${items.length} depense(s)</span></div>
+    <div class="muted">Du ${esc(frDate(session.startDate))}${session.endDate ? ` au ${esc(frDate(session.endDate))}` : ""}</div>
+    <div style="margin-top:8px;"><span class="pill">${items.length} dépense(s)</span></div>
 
-    <h2>Synthese</h2>
+    <h2>Synthèse</h2>
     <table>
       <tbody>
         <tr><td>Report de la session précédente</td><td style="text-align:right;">${esc(fmtEur(b.carryOver))}</td></tr>
@@ -108,6 +115,9 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
         <tr><td>Ajouts exceptionnels</td><td style="text-align:right;">${esc(fmtEur(b.additionsTotal))}</td></tr>
         <tr><td><b>Budget disponible</b></td><td style="text-align:right;"><b>${esc(fmtEur(b.available))}</b></td></tr>
         <tr><td>Total des dépenses</td><td style="text-align:right;">${esc(fmtEur(total))}</td></tr>
+        <tr><td class="muted">dont payé en espèces (ESP)</td><td style="text-align:right;" class="muted">${esc(fmtEur(byPay("especes")))}</td></tr>
+        <tr><td class="muted">dont payé par carte (CB)</td><td style="text-align:right;" class="muted">${esc(fmtEur(byPay("carte")))}</td></tr>
+        ${byPay(null) > 0 ? `<tr><td class="muted">dont paiement à vérifier</td><td style="text-align:right;" class="muted">${esc(fmtEur(byPay(null)))}</td></tr>` : ""}
         <tr><td><b>Solde restant</b></td><td style="text-align:right;"><b>${esc(fmtEur(b.remaining))}</b></td></tr>
         ${(session.additions ?? []).map((a) => `<tr><td class="muted">Ajout du ${esc(new Date(a.date).toLocaleDateString("fr-FR"))}${a.reason ? ` (${esc(a.reason)})` : ""}</td><td style="text-align:right;" class="muted">+${esc(fmtEur(a.amount))}</td></tr>`).join("")}
         ${session.closure ? `<tr><td>Clôture</td><td style="text-align:right;">${esc(new Date(session.closure.closedAt).toLocaleDateString("fr-FR"))} · solde final ${esc(fmtEur(session.closure.finalBalance))}</td></tr>` : ""}
@@ -117,21 +127,25 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
     <div class="total">Total: ${esc(fmtEur(total))}</div>
     <table>
       <thead><tr><th>Motif (dépenses classées)</th><th style="text-align:right;">Total</th></tr></thead>
-      <tbody>${catRows || `<tr><td colspan="2" class="muted">Aucune depense</td></tr>`}</tbody>
+      <tbody>${catRows || `<tr><td colspan="2" class="muted">Aucune dépense</td></tr>`}</tbody>
     </table>
 
-    <h2>Detail des depenses</h2>
+    <h2>Détail des dépenses</h2>
     <table>
       <thead>
         <tr><th>Date</th><th>Enseigne</th><th>Motif</th><th>Paiement</th><th style="text-align:right;">Montant</th><th>Justificatif</th></tr>
       </thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">Aucune depense</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">Aucune dépense</td></tr>`}</tbody>
     </table>
 
     ${photos ? `<h2>Justificatifs</h2>${photos}` : ""}
   </body>
   </html>`;
 
+  if (Platform.OS === "web") {
+    await printHtmlWeb(html);
+    return null;
+  }
   const { uri } = await Print.printToFileAsync({ html });
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {

@@ -1,12 +1,12 @@
 // Apercu + recadrage manuel local du ticket (expo-image-manipulator, aucun reseau).
-// L'original est conserve ; seule l'image validee est envoyee a la reconnaissance.
+// L'original est conserve ; seule l'image validee est lue par la reconnaissance locale.
 import { useRef, useState } from "react";
 import { ActivityIndicator, LayoutChangeEvent, Modal, PanResponder, Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { PickedImage, persistPhoto } from "@/src/lib/image-picker";
+import { PickedImage } from "@/src/lib/image-picker";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -90,9 +90,9 @@ export function CropModal(props: {
       const height = Math.min(ih - originY, Math.round(rect.h / scale));
       const ctx = ImageManipulator.manipulate(img.uri).crop({ originX, originY, width, height });
       const rendered = await ctx.renderAsync();
-      const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.8, base64: true });
+      const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
       props.onValidated(
-        { uri: persistPhoto(saved.uri), base64: saved.base64 ?? "", mimeType: "image/jpeg", width: saved.width, height: saved.height },
+        { uri: saved.uri, base64: "", mimeType: "image/jpeg", width: saved.width, height: saved.height },
         img,
       );
     } catch {

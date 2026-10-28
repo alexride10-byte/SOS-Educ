@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.receiptocr'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.receiptocr"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // Modele latin embarque dans l'appli : reconnaissance sur l'appareil, sans telechargement ni envoi d'image
+  implementation 'com.google.mlkit:text-recognition:16.0.1'
+}

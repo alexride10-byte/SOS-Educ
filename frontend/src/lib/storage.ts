@@ -110,6 +110,21 @@ export const seededFlag = {
   set: () => AsyncStorage.setItem(K.seeded, "1"),
 };
 
+// Efface toutes les donnees. Les drapeaux "demo deja chargee" et "migration faite" sont reposes :
+// l'app redemarre vide, sans recharger les donnees de demonstration.
 export async function clearAll() {
   await AsyncStorage.multiRemove(Object.values(K));
+  await AsyncStorage.multiSet([
+    [K.seeded, "1"],
+    [K.migratedV2, "true"],
+  ]);
+}
+
+// Remplacement complet (restauration d'une sauvegarde)
+export async function replaceAll(data: { sessions: Session[]; expenses: Expense[]; events: AgendaEvent[]; tasks: Task[] }) {
+  await clearAll();
+  await writeList(K.sessions, data.sessions);
+  await writeList(K.expenses, data.expenses);
+  await writeList(K.events, data.events);
+  await writeList(K.tasks, data.tasks);
 }

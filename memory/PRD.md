@@ -72,3 +72,15 @@ plus tard, il suffit de wrapper ces repos sans toucher aux ecrans.
 
 - Backend : service supervise, routes prefixees `/api`.
 - Frontend : `yarn start` (Expo). Les tabs vivent dans `app/(tabs)/`.
+
+## Evolution v3 : MVP web installable (oct. 2026)
+- Publication en appli web installable (PWA) sur GitHub Pages : manifeste, icones, service worker hors ligne
+  (`frontend/scripts/finalize-web.js`, `frontend/web/sw.js`, workflow `.github/workflows/deploy-web.yml`)
+- OCR 100 % local (Tesseract, francais) : `src/lib/ocr.web.ts` + analyse du texte `src/lib/receipt-parse.ts` (testee).
+  Plus aucun envoi de photo a un service distant ; sur natif, saisie manuelle (`src/lib/ocr.ts`)
+- Photos : conservees a l'enregistrement de la depense seulement, supprimees avec elle
+  (`src/lib/photo-store.ts` natif, `photo-store.web.ts` IndexedDB)
+- PDF web via l'impression du navigateur (`src/lib/print-html.web.ts`) ; totaux ESP / CB ajoutes
+- Ecran « Donnees et confidentialite » (`app/confidentialite.tsx`) : sauvegarde (photos comprises),
+  restauration (web), effacement total ; bandeau « Commencer avec une appli vide » pour quitter la demo
+- Controle du montant et de la date d'une depense ; Compta sans session : invitation a creer une session

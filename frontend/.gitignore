@@ -38,3 +38,7 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# Projets natifs generes par "expo prebuild" (reconstruits en CI)
+/android
+/ios
