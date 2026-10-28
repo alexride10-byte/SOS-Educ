@@ -4,7 +4,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@react-native-vector-icons/ionicons";
 
-import { eventsRepo, expensesRepo, tasksRepo } from "@/src/lib/storage";
+import { eventsRepo, expensesRepo, sessionsRepo, tasksRepo } from "@/src/lib/storage";
 import { pendingTasks, setTaskStatus } from "@/src/lib/tasks";
 import { ChildBadge } from "@/src/components/child-legend";
 import { TaskRow } from "@/src/components/tasks";
@@ -12,7 +12,8 @@ import { computeDeparture, formatDateFr, parseLocal } from "@/src/lib/time";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { AgendaEvent, Task, needsReview } from "@/src/types";
 import { NewSessionSheet } from "@/src/components/new-session-sheet";
-import { exportBackup } from "@/src/lib/backup";
+import { eraseAllData } from "@/src/lib/backup";
+import { confirmAction } from "@/src/lib/confirm";
 
 export default function Home() {
   const styles = useStyles();
@@ -24,9 +25,16 @@ export default function Home() {
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [pending, setPending] = useState<Task[]>([]);
   const [showNewSession, setShowNewSession] = useState(false);
+  const [hasDemo, setHasDemo] = useState(false);
 
   const load = useCallback(async () => {
-    const [evs, expenses, tasks] = await Promise.all([eventsRepo.list(), expensesRepo.list(), tasksRepo.list()]);
+    const [evs, expenses, tasks, sessions] = await Promise.all([
+      eventsRepo.list(),
+      expensesRepo.list(),
+      tasksRepo.list(),
+      sessionsRepo.list(),
+    ]);
+    setHasDemo(sessions.some((s) => s.id === "sess-demo-1"));
     const now = Date.now();
     const future = evs
       .filter((e) => e.status === "prevu")
@@ -38,6 +46,12 @@ export default function Home() {
     setToVerify(expenses.filter(needsReview).length);
     setPending(pendingTasks(tasks));
   }, []);
+
+  const startFresh = async () => {
+    if (!(await confirmAction("Effacer les données de démonstration et commencer avec une appli vide ?", "Commencer"))) return;
+    await eraseAllData();
+    load();
+  };
 
   const toggleTask = async (t: Task) => {
     await setTaskStatus(t, "done");
@@ -69,6 +83,19 @@ export default function Home() {
         <Text style={styles.date} testID="home-date">
           {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
         </Text>
+
+        {hasDemo && (
+          <View style={styles.demoCard} testID="demo-banner">
+            <Ionicons name="flask-outline" size={20} color={colors.info} />
+            <View style={{ flex: 1, marginLeft: spacing.md }}>
+              <Text style={styles.summaryValue}>Données de démonstration</Text>
+              <Text style={styles.summarySub}>Les exemples affichés sont fictifs. Effacez-les avant un usage réel.</Text>
+              <Pressable onPress={startFresh} testID="demo-start-fresh" style={styles.demoBtn}>
+                <Text style={styles.demoBtnText}>Commencer avec une appli vide</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         {/* Resume du jour */}
         <View style={styles.summaryCard} testID="daily-summary-card">
@@ -157,9 +184,9 @@ export default function Home() {
           subtitle="Rendez-vous, rappels, préparations"
           onPress={() => router.push("/(tabs)/agenda")}
         />
-        <Pressable onPress={() => exportBackup()} testID="backup-btn" style={styles.backupBtn}>
-          <Ionicons name="download-outline" size={18} color={colors.muted} />
-          <Text style={styles.backupText}>Exporter une sauvegarde des données</Text>
+        <Pressable onPress={() => router.push("/confidentialite")} testID="privacy-link" style={styles.backupBtn}>
+          <Ionicons name="shield-checkmark-outline" size={18} color={colors.muted} />
+          <Text style={styles.backupText}>Données et confidentialité · sauvegarde</Text>
         </Pressable>
       </ScrollView>
       <NewSessionSheet
@@ -216,6 +243,17 @@ const useStyles = makeStyles((colors) => ({
   newSessionText: { color: colors.onBrand, fontSize: 16, fontWeight: "700" },
   backupBtn: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, marginTop: spacing.xl },
   backupText: { color: colors.muted, fontSize: 13 },
+  demoCard: {
+    flexDirection: "row",
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.info,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  demoBtn: { marginTop: spacing.sm, alignSelf: "flex-start", minHeight: 40, justifyContent: "center" },
+  demoBtnText: { color: colors.info, fontWeight: "700", fontSize: 14 },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   themeBtn: {
     width: 48,

@@ -1,8 +1,7 @@
 // Helper: capturer une image via appareil photo ou galerie.
-// Retourne une URI locale et le base64 (pour OCR).
+// Retourne une URI temporaire ; la photo n'est conservee (photo-store) qu'a l'enregistrement de la depense.
 import * as ImagePicker from "expo-image-picker";
 import { Platform } from "react-native";
-import { Directory, File, Paths } from "expo-file-system";
 
 export interface PickedImage {
   uri: string;
@@ -12,25 +11,11 @@ export interface PickedImage {
   height: number;
 }
 
-// Copie la photo du cache (purgeable par le systeme) vers le dossier documents prive de l'app.
-export function persistPhoto(uri: string): string {
-  if (Platform.OS === "web") return uri;
-  try {
-    const dir = new Directory(Paths.document, "justificatifs");
-    if (!dir.exists) dir.create({ idempotent: true });
-    const dest = new File(dir, `photo-${Date.now()}.jpg`);
-    new File(uri).copySync(dest);
-    return dest.uri;
-  } catch {
-    return uri;
-  }
-}
-
-async function toPicked(res: ImagePicker.ImagePickerResult): Promise<PickedImage | null> {
+function toPicked(res: ImagePicker.ImagePickerResult): PickedImage | null {
   if (res.canceled || !res.assets?.length) return null;
   const a = res.assets[0];
   return {
-    uri: persistPhoto(a.uri),
+    uri: a.uri,
     width: a.width,
     height: a.height,
     base64: a.base64 ?? "",
@@ -38,28 +23,26 @@ async function toPicked(res: ImagePicker.ImagePickerResult): Promise<PickedImage
   };
 }
 
+// Le base64 n'est plus utile (OCR local a partir de l'URI) : evite de charger la photo deux fois en memoire
+const OPTIONS: ImagePicker.ImagePickerOptions = {
+  mediaTypes: ["images"],
+  base64: false,
+  quality: Platform.OS === "web" ? 1 : 0.6,
+  allowsEditing: false,
+};
+
 export async function takePhoto(): Promise<PickedImage | null> {
   if (Platform.OS !== "web") {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) return null;
   }
-  const res = await ImagePicker.launchCameraAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    base64: true,
-    quality: 0.6,
-    allowsEditing: false,
-  });
-  return toPicked(res);
+  return toPicked(await ImagePicker.launchCameraAsync(OPTIONS));
 }
 
 export async function pickFromLibrary(): Promise<PickedImage | null> {
-  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!perm.granted) return null;
-  const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    base64: true,
-    quality: 0.6,
-    allowsEditing: false,
-  });
-  return toPicked(res);
+  if (Platform.OS !== "web") {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return null;
+  }
+  return toPicked(await ImagePicker.launchImageLibraryAsync(OPTIONS));
 }

@@ -1,5 +1,6 @@
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Image } from "expo-image";
 import {
   ActivityIndicator,
   FlatList,
@@ -19,6 +20,7 @@ import { expensesRepo, sessionsRepo } from "@/src/lib/storage";
 import { exportSessionPdf } from "@/src/lib/pdf";
 import { ocrReceipt } from "@/src/lib/ocr";
 import { PickedImage, pickFromLibrary, takePhoto } from "@/src/lib/image-picker";
+import { deletePhoto, photoDisplayUri, storePhoto } from "@/src/lib/photo-store";
 import { reopenSession, updateInitialBudget } from "@/src/lib/sessions";
 import { AddMoneySheet } from "@/src/components/add-money-sheet";
 import { CloseSessionSheet } from "@/src/components/close-session-sheet";
@@ -27,7 +29,9 @@ import { CropModal } from "@/src/components/crop-modal";
 import { categoryColors, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { BudgetDashboard } from "@/src/components/budget-dashboard";
 import { BudgetSheet } from "@/src/components/budget-sheet";
-import { localIso } from "@/src/lib/time";
+import { localIso, parseLocal } from "@/src/lib/time";
+import { round2 } from "@/src/lib/money";
+import { confirmAction } from "@/src/lib/confirm";
 import {
   EXPENSE_CATEGORIES,
   Expense,
@@ -67,7 +71,7 @@ export default function Comptabilite() {
     const [s, e] = await Promise.all([sessionsRepo.list(), expensesRepo.list()]);
     setSessions(s);
     setExpenses(e);
-    if (!currentSessionId && s[0]) setCurrentSessionId(s[0].id);
+    if (!s.some((x) => x.id === currentSessionId)) setCurrentSessionId(s[0]?.id ?? null);
   }, [currentSessionId]);
 
   useFocusEffect(
@@ -109,8 +113,8 @@ export default function Comptabilite() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Comptabilite</Text>
-        <Text style={styles.subtitle}>Justificatifs et depenses</Text>
+        <Text style={styles.title}>Comptabilité</Text>
+        <Text style={styles.subtitle}>Justificatifs et dépenses</Text>
       </View>
 
       {/* Session selector */}
@@ -142,6 +146,18 @@ export default function Comptabilite() {
       <FlatList
         data={filtered}
         ListHeaderComponent={
+          !currentSession ? (
+            <View style={styles.noSession} testID="no-session">
+              <Ionicons name="wallet-outline" size={40} color={colors.brandPrimary} />
+              <Text style={styles.noSessionTitle}>Aucune session</Text>
+              <Text style={styles.noSessionText}>
+                Créez une session (ex. du 1er au 15 du mois) avec son budget pour commencer à enregistrer vos tickets.
+              </Text>
+              <Pressable onPress={() => setShowNewSession(true)} style={[styles.saveBtn, { alignSelf: "stretch" }]} testID="no-session-create">
+                <Text style={styles.saveText}>Créer une session</Text>
+              </Pressable>
+            </View>
+          ) : (
           <BudgetDashboard
             session={currentSession}
             expenses={filtered}
@@ -155,14 +171,17 @@ export default function Comptabilite() {
             onExport={onExport}
             exporting={exporting}
           />
+          )
         }
         keyExtractor={(e) => e.id}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="receipt-outline" size={48} color={colors.muted} />
-            <Text style={styles.emptyText}>Aucune depense pour cette session</Text>
-          </View>
+          currentSession ? (
+            <View style={styles.empty}>
+              <Ionicons name="receipt-outline" size={48} color={colors.muted} />
+              <Text style={styles.emptyText}>Aucune dépense pour cette session</Text>
+            </View>
+          ) : null
         }
         renderItem={({ item }) => (
           <Pressable
@@ -207,7 +226,7 @@ export default function Comptabilite() {
       />
 
       {/* FAB (masque si la session est cloturee) */}
-      {!closed && <Pressable
+      {currentSession && !closed && <Pressable
         onPress={openNew}
         testID="add-expense-fab"
         style={[styles.fab, { bottom: 16 + insets.bottom }]}
@@ -286,6 +305,8 @@ function ExpenseFormModal(props: {
   const [photoUri, setPhotoUri] = useState<string | undefined>(undefined);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrInfo, setOcrInfo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -300,6 +321,7 @@ function ExpenseFormModal(props: {
       setPhotoUri(i?.photoUri);
       setOriginalPhotoUri(i?.originalPhotoUri);
       setOcrInfo(null);
+      setError(null);
     }, [props.visible, props.initial]),
   );
 
@@ -317,14 +339,10 @@ function ExpenseFormModal(props: {
   };
 
   const analyze = async (pick: PickedImage) => {
-    if (!pick.base64) {
-      setOcrInfo("Image sans base64, verifiez manuellement.");
-      return;
-    }
     setOcrLoading(true);
     setOcrInfo(null);
     try {
-      const r = await ocrReceipt(pick.base64, pick.mimeType);
+      const r = await ocrReceipt(pick);
       if (r.date) setDate(r.date);
       if (r.merchant) setMerchant(r.merchant);
       if (r.amount != null) setAmount(String(r.amount));
@@ -339,35 +357,59 @@ function ExpenseFormModal(props: {
           : "Informations détectées. Vérifiez et modifiez si besoin.",
       );
     } catch {
-      setOcrInfo("OCR indisponible. Saisie manuelle requise.");
+      setOcrInfo("Lecture automatique impossible. Saisissez les informations du ticket.");
     } finally {
       setOcrLoading(false);
     }
   };
 
   const save = async () => {
-    if (!props.sessionId) return;
-    const amt = parseFloat(amount.replace(",", "."));
-    const exp: Expense = {
-      id: props.initial?.id ?? `exp-${uuid()}`,
-      sessionId: props.sessionId,
-      date: date || localIso(),
-      merchant: merchant.trim(),
-      amount: isNaN(amt) ? 0 : amt,
-      paymentMethod,
-      category,
-      comment,
-      photoUri,
-      originalPhotoUri,
-      createdAt: props.initial?.createdAt ?? new Date().toISOString(),
-    };
-    await expensesRepo.save(exp);
-    props.onSaved();
+    if (!props.sessionId || saving) return;
+    const amt = parseFloat(amount.replace(",", ".").replace(/\s/g, ""));
+    if (!(amt > 0)) return setError("Indiquez le montant total du ticket.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(parseLocal(date).getTime())) {
+      return setError("Date invalide : format AAAA-MM-JJ (ex. 2026-10-28).");
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      // Photos conservees seulement a l'enregistrement ; la meme image n'est stockee qu'une fois
+      const storedPhoto = photoUri ? await storePhoto(photoUri) : undefined;
+      const storedOriginal =
+        originalPhotoUri && originalPhotoUri !== photoUri ? await storePhoto(originalPhotoUri) : storedPhoto;
+      const exp: Expense = {
+        id: props.initial?.id ?? `exp-${uuid()}`,
+        sessionId: props.sessionId,
+        date,
+        merchant: merchant.trim(),
+        amount: round2(amt),
+        paymentMethod,
+        category,
+        comment,
+        photoUri: storedPhoto,
+        originalPhotoUri: storedOriginal,
+        createdAt: props.initial?.createdAt ?? new Date().toISOString(),
+      };
+      await expensesRepo.save(exp);
+      // Photos remplacees : supprimees de l'appareil (minimisation des donnees)
+      const kept = [storedPhoto, storedOriginal];
+      for (const old of [props.initial?.photoUri, props.initial?.originalPhotoUri]) {
+        if (old && !kept.includes(old)) await deletePhoto(old);
+      }
+      props.onSaved();
+    } catch {
+      setError("Enregistrement impossible (stockage du téléphone plein ?).");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const remove = async () => {
     if (!props.initial) return;
+    if (!(await confirmAction("Supprimer cette dépense et son justificatif ?"))) return;
     await expensesRepo.remove(props.initial.id);
+    await deletePhoto(props.initial.photoUri);
+    await deletePhoto(props.initial.originalPhotoUri);
     props.onSaved();
   };
 
@@ -381,7 +423,7 @@ function ExpenseFormModal(props: {
           <Pressable onPress={props.onClose} testID="expense-form-close">
             <Ionicons name="close" size={28} color={colors.onSurface} />
           </Pressable>
-          <Text style={styles.modalTitle}>{props.initial ? "Modifier la depense" : "Nouvelle depense"}</Text>
+          <Text style={styles.modalTitle}>{props.initial ? "Modifier la dépense" : "Nouvelle dépense"}</Text>
           <View style={{ width: 28 }} />
         </View>
 
@@ -401,10 +443,12 @@ function ExpenseFormModal(props: {
             </Pressable>
           </View>
 
+          {photoUri && <PhotoThumb uri={photoUri} />}
+
           {ocrLoading && (
             <View style={styles.ocrBanner}>
               <ActivityIndicator color={colors.brandPrimary} />
-              <Text style={styles.ocrText}>Analyse du ticket...</Text>
+              <Text style={styles.ocrText}>Lecture du ticket sur l’appareil… (la première fois peut prendre un moment)</Text>
             </View>
           )}
           {ocrInfo && (
@@ -414,7 +458,7 @@ function ExpenseFormModal(props: {
             </View>
           )}
 
-          <Field label="Date" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" testID="field-date" />
+          <Field label="Date (AAAA-MM-JJ)" value={date} onChangeText={setDate} placeholder="2026-10-28" testID="field-date" />
           <Field
             label="Enseigne / lieu"
             value={merchant}
@@ -503,14 +547,33 @@ function ExpenseFormModal(props: {
         </ScrollView>
 
         <View style={[styles.modalFooter, { paddingBottom: insets.bottom + spacing.sm }]}>
-          <Pressable style={styles.saveBtn} onPress={save} testID="expense-save">
-            <Text style={styles.saveText}>Enregistrer</Text>
+          {error && (
+            <Text style={styles.errorText} testID="expense-error">
+              {error}
+            </Text>
+          )}
+          <Pressable style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving} testID="expense-save">
+            {saving ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.saveText}>Enregistrer</Text>}
           </Pressable>
         </View>
         <CropModal image={cropSource} onCancel={() => setCropSource(null)} onValidated={onCropValidated} />
       </KeyboardAvoidingView>
     </Modal>
   );
+}
+
+function PhotoThumb({ uri }: { uri: string }) {
+  const styles = useStyles();
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    photoDisplayUri(uri).then((u) => alive && setSrc(u));
+    return () => {
+      alive = false;
+    };
+  }, [uri]);
+  if (!src) return null;
+  return <Image source={{ uri: src }} style={styles.thumb} contentFit="contain" testID="expense-photo-thumb" />;
 }
 
 function Field(props: {
@@ -610,6 +673,17 @@ const useStyles = makeStyles((colors) => ({
   expenseMeta: { fontSize: 12, color: colors.muted, marginTop: 2 },
   expenseAmount: { fontSize: 15, fontWeight: "700", color: colors.onSurface },
   empty: { alignItems: "center", padding: spacing.xxl },
+  noSession: {
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.xl,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  noSessionTitle: { fontSize: 18, fontWeight: "700", color: colors.onSurface },
+  noSessionText: { fontSize: 14, color: colors.onSurfaceSecondary, textAlign: "center", marginBottom: spacing.sm },
   emptyText: { color: colors.muted, marginTop: spacing.sm, fontSize: 14 },
   fab: {
     position: "absolute",
@@ -714,4 +788,11 @@ const useStyles = makeStyles((colors) => ({
     paddingVertical: spacing.md,
   },
   deleteText: { color: colors.error, fontWeight: "600" },
+  errorText: { color: colors.error, fontSize: 13, fontWeight: "600", marginBottom: spacing.sm },
+  thumb: {
+    height: 180,
+    marginTop: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceTertiary,
+  },
 }));

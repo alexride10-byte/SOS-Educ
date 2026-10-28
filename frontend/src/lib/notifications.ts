@@ -149,3 +149,10 @@ export async function cancelReminders(ids?: string[]) {
     } catch {}
   }
 }
+
+export async function cancelAllReminders() {
+  if (Platform.OS === "web") return;
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch {}
+}
