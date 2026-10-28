@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: apk-${{ github.ref }}
@@ -85,3 +86,5 @@ jobs:
             --title "CareSync ${{ steps.apk.outputs.version }}" \
             --notes "Appli Android a installer sur le telephone (hors Play Store). Telecharger le fichier .apk ci-dessous, puis l'ouvrir." \
             --target "${{ github.sha }}"
+          # Met a jour le site web pour qu'il serve ce nouvel APK
+          gh workflow run deploy-web.yml --repo "${{ github.repository }}" --ref main

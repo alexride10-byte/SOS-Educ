@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -36,6 +37,14 @@ jobs:
       - run: yarn build:web
         env:
           EXPO_PUBLIC_BASE_URL: /${{ github.event.repository.name }}
+      # APK de la derniere version publiee, servi depuis le site : /caresync.apk
+      - name: Joindre l'APK Android
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo "${{ github.repository }}" --pattern '*.apk' --dir apk-tmp || echo "Pas encore d'APK publie"
+          if ls apk-tmp/*.apk >/dev/null 2>&1; then mv apk-tmp/*.apk dist/caresync.apk; fi
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:
