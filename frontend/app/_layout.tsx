@@ -1,16 +1,16 @@
-import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { ActivityIndicator, LogBox, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
+import { Archivo_800ExtraBold } from "@expo-google-fonts/archivo/800ExtraBold";
+import { Archivo_900Black } from "@expo-google-fonts/archivo/900Black";
 
 import { ErrorBoundary } from "@/src/components/error-boundary";
-import { queryClient } from "@/src/query-client";
 import { seedIfNeeded } from "@/src/lib/seed";
-import { migrateV2 } from "@/src/lib/migrate";
+import { AppLockProvider } from "@/src/lib/app-lock";
 import { ChildColorsProvider } from "@/src/lib/child-colors";
 import { setupNotifications } from "@/src/lib/notifications";
 import { NotificationActions } from "@/src/lib/notification-actions";
@@ -38,11 +38,12 @@ function ThemedStack({ ready }: { ready: boolean }) {
 }
 
 export default function RootLayout() {
-  const [ready, setReady] = useState(false);
+  const [dataReady, setReady] = useState(false);
+  const [fontsLoaded, fontError] = useFonts({ Archivo_800ExtraBold, Archivo_900Black });
+  const ready = dataReady && (fontsLoaded || !!fontError);
   useEffect(() => {
     setupNotifications();
     seedIfNeeded()
-      .then(migrateV2)
       .catch(() => {})
       .finally(() => setReady(true));
   }, []);
@@ -51,15 +52,13 @@ export default function RootLayout() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <QueryClientProvider client={queryClient}>
-            <KeyboardProvider>
-              <ThemeProvider>
-                <ChildColorsProvider>
-                  <ThemedStack ready={ready} />
-                </ChildColorsProvider>
-              </ThemeProvider>
-            </KeyboardProvider>
-          </QueryClientProvider>
+          <ThemeProvider>
+            <AppLockProvider>
+              <ChildColorsProvider>
+                <ThemedStack ready={ready} />
+              </ChildColorsProvider>
+            </AppLockProvider>
+          </ThemeProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>

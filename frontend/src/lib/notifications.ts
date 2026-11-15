@@ -1,5 +1,4 @@
-// Notifications locales pour les rendez-vous.
-// 4 rappels: T-1h, T-30min, T-25min, T-5min.
+// Notifications locales pour les rendez-vous et preparations (plan des rappels : reminder-plan.ts).
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { AgendaEvent, ReminderKind, Task } from "@/src/types";

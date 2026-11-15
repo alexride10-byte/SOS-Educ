@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image } from "expo-image";
 import {
@@ -10,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,7 +25,7 @@ import { AddMoneySheet } from "@/src/components/add-money-sheet";
 import { CloseSessionSheet } from "@/src/components/close-session-sheet";
 import { NewSessionSheet } from "@/src/components/new-session-sheet";
 import { CropModal } from "@/src/components/crop-modal";
-import { categoryColors, makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { categoryColors, fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { BudgetDashboard } from "@/src/components/budget-dashboard";
 import { BudgetSheet } from "@/src/components/budget-sheet";
 import { localIso, parseLocal } from "@/src/lib/time";
@@ -42,10 +41,8 @@ import {
   needsReview,
   paymentLabel,
 } from "@/src/types";
-
-function uuid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+import { newId } from "@/src/lib/id";
+import { Field } from "@/src/components/field";
 
 export default function Comptabilite() {
   const styles = useStyles();
@@ -61,11 +58,19 @@ export default function Comptabilite() {
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [showClose, setShowClose] = useState(false);
   const [showNewSession, setShowNewSession] = useState(false);
-  const params = useLocalSearchParams<{ session?: string }>();
+  const params = useLocalSearchParams<{ session?: string; add?: string }>();
 
   useEffect(() => {
     if (params.session) setCurrentSessionId(params.session);
   }, [params.session]);
+
+  // "Ajouter un ticket" depuis l'accueil : ouvre directement le formulaire
+  useEffect(() => {
+    if (params.add !== "1") return;
+    setEditing(null);
+    setShowForm(true);
+    router.setParams({ add: undefined });
+  }, [params.add]);
 
   const reload = useCallback(async () => {
     const [s, e] = await Promise.all([sessionsRepo.list(), expensesRepo.list()]);
@@ -378,7 +383,7 @@ function ExpenseFormModal(props: {
       const storedOriginal =
         originalPhotoUri && originalPhotoUri !== photoUri ? await storePhoto(originalPhotoUri) : storedPhoto;
       const exp: Expense = {
-        id: props.initial?.id ?? `exp-${uuid()}`,
+        id: props.initial?.id ?? newId("exp"),
         sessionId: props.sessionId,
         date,
         merchant: merchant.trim(),
@@ -576,38 +581,10 @@ function PhotoThumb({ uri }: { uri: string }) {
   return <Image source={{ uri: src }} style={styles.thumb} contentFit="contain" testID="expense-photo-thumb" />;
 }
 
-function Field(props: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder?: string;
-  keyboardType?: any;
-  multiline?: boolean;
-  testID?: string;
-}) {
-  const styles = useStyles();
-  const { colors } = useTheme();
-  return (
-    <View style={{ marginTop: spacing.md }}>
-      <Text style={styles.fieldLabel}>{props.label}</Text>
-      <TextInput
-        value={props.value}
-        onChangeText={props.onChangeText}
-        placeholder={props.placeholder}
-        placeholderTextColor={colors.muted}
-        keyboardType={props.keyboardType}
-        multiline={props.multiline}
-        style={[styles.input, props.multiline && { height: 80, textAlignVertical: "top" }]}
-        testID={props.testID}
-      />
-    </View>
-  );
-}
-
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  title: { fontSize: 24, fontWeight: "700", color: colors.onSurface },
+  title: { fontFamily: fonts.display, fontSize: 30, letterSpacing: -0.5, color: colors.onSurface },
   subtitle: { fontSize: 13, color: colors.muted, marginTop: 2 },
   chip: {
     height: 36,
@@ -625,30 +602,6 @@ const useStyles = makeStyles((colors) => ({
   chipText: { fontSize: 13, color: colors.onSurfaceSecondary, fontWeight: "600" },
   chipTextSelected: { color: colors.onBrand },
   chipAdd: { backgroundColor: colors.brandSecondary, borderColor: colors.brandSecondary },
-  totalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    padding: spacing.lg,
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  totalLabel: { fontSize: 12, color: colors.muted },
-  totalValue: { fontSize: 22, fontWeight: "700", color: colors.onSurface, marginTop: 2 },
-  exportBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: colors.brandPrimary,
-    paddingHorizontal: spacing.md,
-    height: 44,
-    borderRadius: radius.md,
-  },
-  exportText: { color: colors.onBrand, fontWeight: "700" },
   expenseRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -746,17 +699,6 @@ const useStyles = makeStyles((colors) => ({
   },
   ocrText: { color: colors.onSurface, flex: 1, fontSize: 13 },
   fieldLabel: { fontSize: 12, color: colors.muted, fontWeight: "600", marginBottom: 6, marginTop: spacing.md },
-  input: {
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: 15,
-    color: colors.onSurface,
-    minHeight: 48,
-  },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: 4 },
   selectChip: {
     flexDirection: "row",

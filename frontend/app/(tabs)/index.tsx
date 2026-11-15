@@ -9,8 +9,9 @@ import { pendingTasks, setTaskStatus } from "@/src/lib/tasks";
 import { ChildBadge } from "@/src/components/child-legend";
 import { TaskRow } from "@/src/components/tasks";
 import { computeDeparture, formatDateFr, parseLocal } from "@/src/lib/time";
-import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
-import { AgendaEvent, Task, needsReview } from "@/src/types";
+import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { AgendaEvent, Expense, Session, Task, needsReview } from "@/src/types";
+import { BudgetTicket } from "@/src/components/budget-ticket";
 import { NewSessionSheet } from "@/src/components/new-session-sheet";
 import { eraseAllData } from "@/src/lib/backup";
 import { confirmAction } from "@/src/lib/confirm";
@@ -27,6 +28,8 @@ export default function Home() {
   const [pending, setPending] = useState<Task[]>([]);
   const [showNewSession, setShowNewSession] = useState(false);
   const [hasDemo, setHasDemo] = useState(false);
+  const [current, setCurrent] = useState<Session | null>(null);
+  const [currentExpenses, setCurrentExpenses] = useState<Expense[]>([]);
 
   const load = useCallback(async () => {
     const [evs, expenses, tasks, sessions] = await Promise.all([
@@ -36,6 +39,10 @@ export default function Home() {
       sessionsRepo.list(),
     ]);
     setHasDemo(sessions.some((s) => s.id === "sess-demo-1"));
+    // Session en cours : la plus recente non cloturee
+    const cur = sessions.find((s) => !s.closure) ?? null;
+    setCurrent(cur);
+    setCurrentExpenses(cur ? expenses.filter((e) => e.sessionId === cur.id) : []);
     const now = Date.now();
     const future = evs
       .filter((e) => e.status === "prevu")
@@ -87,7 +94,7 @@ export default function Home() {
 
         {hasDemo && (
           <View style={styles.demoCard} testID="demo-banner">
-            <Ionicons name="flask-outline" size={20} color={colors.info} />
+            <Ionicons name="flask-outline" size={20} color={colors.onBrandSecondary} />
             <View style={{ flex: 1, marginLeft: spacing.md }}>
               <Text style={styles.summaryValue}>Données de démonstration</Text>
               <Text style={styles.summarySub}>Les exemples affichés sont fictifs. Effacez-les avant un usage réel.</Text>
@@ -97,6 +104,14 @@ export default function Home() {
             </View>
           </View>
         )}
+
+        <BudgetTicket
+          session={current}
+          expenses={currentExpenses}
+          onOpen={() => current && router.push({ pathname: "/(tabs)/comptabilite", params: { session: current.id } })}
+          onAddTicket={() => current && router.push({ pathname: "/(tabs)/comptabilite", params: { session: current.id, add: "1" } })}
+          onCreateSession={() => setShowNewSession(true)}
+        />
 
         {/* Resume du jour */}
         <View style={styles.summaryCard} testID="daily-summary-card">
@@ -160,31 +175,6 @@ export default function Home() {
           )}
         </View>
 
-        {/* Cartes modules */}
-        <Text style={[styles.sectionTitle, { marginTop: spacing.xl, marginBottom: spacing.md }]}>Modules</Text>
-
-        <ModuleCard
-          testID="module-comptabilite"
-          icon="wallet-outline"
-          title="Comptabilite"
-          subtitle="Tickets, budget, dossier PDF"
-          onPress={() => router.push("/(tabs)/comptabilite")}
-        />
-        <Pressable
-          onPress={() => setShowNewSession(true)}
-          testID="home-new-session-btn"
-          style={({ pressed }) => [styles.newSessionBtn, pressed && { opacity: 0.8 }]}
-        >
-          <Ionicons name="add-circle" size={22} color={colors.onBrand} />
-          <Text style={styles.newSessionText}>Nouvelle session</Text>
-        </Pressable>
-        <ModuleCard
-          testID="module-agenda"
-          icon="calendar-outline"
-          title="Agenda"
-          subtitle="Rendez-vous, rappels, préparations"
-          onPress={() => router.push("/(tabs)/agenda")}
-        />
         {Platform.OS === "web" && (
           <Pressable onPress={() => window.location.assign(appUrl("caresync.apk"))} testID="android-apk-link" style={styles.backupBtn}>
             <Ionicons name="logo-android" size={18} color={colors.muted} />
@@ -193,7 +183,7 @@ export default function Home() {
         )}
         <Pressable onPress={() => router.push("/confidentialite")} testID="privacy-link" style={styles.backupBtn}>
           <Ionicons name="shield-checkmark-outline" size={18} color={colors.muted} />
-          <Text style={styles.backupText}>Données et confidentialité · sauvegarde</Text>
+          <Text style={styles.backupText}>Données, confidentialité et sauvegarde</Text>
         </Pressable>
       </ScrollView>
       <NewSessionSheet
@@ -208,59 +198,19 @@ export default function Home() {
   );
 }
 
-function ModuleCard(props: {
-  icon: string;
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-  testID?: string;
-}) {
-  const styles = useStyles();
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={props.onPress}
-      testID={props.testID}
-      style={({ pressed }) => [styles.moduleCard, pressed && { opacity: 0.7 }]}
-    >
-      <View style={styles.moduleIconBox}>
-        <Ionicons name={props.icon as any} color={colors.brandPrimary} size={28} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.moduleTitle}>{props.title}</Text>
-        <Text style={styles.moduleSub}>{props.subtitle}</Text>
-      </View>
-      <Ionicons name="chevron-forward" color={colors.muted} size={22} />
-    </Pressable>
-  );
-}
-
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
-  newSessionBtn: {
-    height: 56,
-    borderRadius: radius.md,
-    backgroundColor: colors.brandPrimary,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginBottom: spacing.md,
-  },
-  newSessionText: { color: colors.onBrand, fontSize: 16, fontWeight: "700" },
   backupBtn: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, marginTop: spacing.xl },
   backupText: { color: colors.muted, fontSize: 13 },
   demoCard: {
     flexDirection: "row",
     marginTop: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.info,
-    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.md,
+    backgroundColor: colors.brandSecondary,
   },
   demoBtn: { marginTop: spacing.sm, alignSelf: "flex-start", minHeight: 40, justifyContent: "center" },
-  demoBtnText: { color: colors.info, fontWeight: "700", fontSize: 14 },
+  demoBtnText: { color: colors.brandPrimary, fontWeight: "700", fontSize: 14, textDecorationLine: "underline" },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   themeBtn: {
     width: 48,
@@ -270,9 +220,9 @@ const useStyles = makeStyles((colors) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  hello: { fontSize: 28, fontWeight: "700", color: colors.onSurface },
+  hello: { fontFamily: fonts.display, fontSize: 34, letterSpacing: -0.5, color: colors.onSurface },
   date: { fontSize: 14, color: colors.muted, marginTop: 4, textTransform: "capitalize" },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: colors.onSurface, marginBottom: spacing.sm },
+  sectionTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.onSurface, marginBottom: spacing.sm },
   summaryCard: {
     marginTop: spacing.lg,
     backgroundColor: colors.surfaceSecondary,
@@ -286,28 +236,4 @@ const useStyles = makeStyles((colors) => ({
   summaryValue: { fontSize: 15, color: colors.onSurface, fontWeight: "600", marginTop: 2 },
   summarySub: { fontSize: 13, color: colors.onSurfaceSecondary, marginTop: 2 },
   divider: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.sm },
-  moduleCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    minHeight: 72,
-  },
-  moduleIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.brandSecondary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.md,
-  },
-  moduleTitle: { fontSize: 17, fontWeight: "700", color: colors.onSurface },
-  moduleSub: { fontSize: 13, color: colors.muted, marginTop: 2 },
-  taskRow: { flexDirection: "row", alignItems: "center", paddingVertical: 6 },
-  taskText: { marginLeft: spacing.sm, color: colors.onSurfaceSecondary, fontSize: 14 },
 }));

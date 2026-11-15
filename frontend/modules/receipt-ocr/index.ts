@@ -10,8 +10,6 @@ export interface OcrLine {
 
 const Native = requireOptionalNativeModule<{ recognize(uri: string): Promise<OcrLine[]> }>("ReceiptOcr");
 
-export const isAvailable = !!Native;
-
 export function recognize(uri: string): Promise<OcrLine[]> {
   if (!Native) return Promise.reject(new Error("Lecture des tickets non disponible sur cet appareil"));
   return Native.recognize(uri);

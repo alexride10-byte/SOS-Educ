@@ -2,6 +2,8 @@
 // Meme API que photo-store.web.ts (IndexedDB du navigateur).
 import { Directory, File, Paths } from "expo-file-system";
 
+import { newId } from "./id";
+
 const DIR = "justificatifs";
 
 export const isStoredPhoto = (uri: string) => uri.includes(`/${DIR}/`);
@@ -11,7 +13,7 @@ export async function storePhoto(uri: string): Promise<string> {
   if (isStoredPhoto(uri)) return uri;
   const dir = new Directory(Paths.document, DIR);
   if (!dir.exists) dir.create({ idempotent: true });
-  const dest = new File(dir, `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.jpg`);
+  const dest = new File(dir, `${newId("photo")}.jpg`);
   new File(uri).copySync(dest);
   return dest.uri;
 }
@@ -32,7 +34,7 @@ export async function photoDisplayUri(uri: string): Promise<string | null> {
 export async function restorePhoto(dataUri: string): Promise<string> {
   const dir = new Directory(Paths.document, DIR);
   if (!dir.exists) dir.create({ idempotent: true });
-  const dest = new File(dir, `photo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.jpg`);
+  const dest = new File(dir, `${newId("photo")}.jpg`);
   dest.create({ overwrite: true });
   dest.write(dataUri.split(",")[1] ?? "", { encoding: "base64" });
   return dest.uri;

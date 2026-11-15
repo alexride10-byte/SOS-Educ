@@ -29,4 +29,4 @@ EXPO_PUBLIC_BASE_URL=/SOS-Educ yarn build:web   # appli web installable dans fro
 Publication : le workflow `.github/workflows/deploy-web.yml` publie `frontend/dist` sur GitHub Pages à chaque
 mise à jour de `main` (activer une fois : Settings → Pages → Source : « GitHub Actions »).
 
-Le dossier `backend/` (OCR par IA via Emergent) n'est plus utilisé par l'appli web.
+Appli Android : APK publié automatiquement dans les Releases (voir `.github/workflows/android-apk.yml`).

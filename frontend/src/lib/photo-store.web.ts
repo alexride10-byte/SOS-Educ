@@ -1,6 +1,8 @@
 // Justificatifs (photos de tickets) dans le navigateur : IndexedDB, sur l'appareil uniquement.
 // Les URI "blob:" donnees par l'appareil photo ne survivent pas a un rechargement : on stocke
 // une copie reduite (JPEG ~1600 px) et on reference la photo par "idb:<id>".
+import { newId } from "./id";
+
 const DB = "caresync-photos";
 const STORE = "photos";
 const PREFIX = "idb:";
@@ -44,7 +46,7 @@ async function shrink(blob: Blob): Promise<Blob> {
 }
 
 async function putBlob(blob: Blob): Promise<string> {
-  const id = `photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const id = newId("photo");
   await tx("readwrite", (s) => s.put(blob, id));
   return PREFIX + id;
 }

@@ -4,80 +4,82 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type ColorScheme = "light" | "dark";
 
+// Palette "cahier" : bleu encre, papier bleute, rouge de la marge (accent rare).
 const light = {
   // Surfaces
-  surface: "#F9FAFB",
-  onSurface: "#111827",
+  surface: "#EEF1F8",
+  onSurface: "#141B34",
   surfaceSecondary: "#FFFFFF",
-  onSurfaceSecondary: "#1F2937",
-  surfaceTertiary: "#F3F4F6",
-  onSurfaceTertiary: "#374151",
-  surfaceInverse: "#1F2937",
+  onSurfaceSecondary: "#1E2747",
+  surfaceTertiary: "#E3E8F4",
+  onSurfaceTertiary: "#3A4468",
+  surfaceInverse: "#141B34",
   onSurfaceInverse: "#FFFFFF",
-  muted: "#6B7280",
+  muted: "#5A6688",
 
-  // Brand (Teal)
-  brand: "#0F766E",
+  // Encre
+  brand: "#2340C8",
   onBrand: "#FFFFFF",
-  brandPrimary: "#0F766E",
+  brandPrimary: "#2340C8",
   onBrandPrimary: "#FFFFFF",
-  brandSecondary: "#CCFBF1",
-  onBrandSecondary: "#0F766E",
-  brandTertiary: "#E2E8F0",
-  onBrandTertiary: "#334155",
+  brandSecondary: "#DDE3FB",
+  onBrandSecondary: "#1B2F99",
+  brandTertiary: "#E3E8F4",
+  onBrandTertiary: "#3A4468",
+  margin: "#E2384D",
 
-  success: "#166534",
+  success: "#1E7A46",
   onSuccess: "#FFFFFF",
-  warning: "#B45309",
+  warning: "#B4540A",
   onWarning: "#FFFFFF",
-  error: "#B91C1C",
+  error: "#C8283C",
   onError: "#FFFFFF",
-  info: "#0369A1",
+  info: "#0E6FA8",
   onInfo: "#FFFFFF",
 
-  border: "#E5E7EB",
-  borderStrong: "#9CA3AF",
-  divider: "#F3F4F6",
+  border: "#D5DCEC",
+  borderStrong: "#9AA6C6",
+  divider: "#E3E8F4",
 };
 
 const dark: typeof light = {
-  surface: "#0B1220",
-  onSurface: "#F9FAFB",
-  surfaceSecondary: "#111827",
-  onSurfaceSecondary: "#E5E7EB",
-  surfaceTertiary: "#1F2937",
-  onSurfaceTertiary: "#D1D5DB",
-  surfaceInverse: "#F9FAFB",
-  onSurfaceInverse: "#111827",
-  muted: "#9CA3AF",
+  surface: "#0D1330",
+  onSurface: "#EEF1FB",
+  surfaceSecondary: "#161E45",
+  onSurfaceSecondary: "#DCE2F5",
+  surfaceTertiary: "#1F2958",
+  onSurfaceTertiary: "#C3CBE6",
+  surfaceInverse: "#EEF1FB",
+  onSurfaceInverse: "#0D1330",
+  muted: "#95A0C4",
 
-  brand: "#2DD4BF",
-  onBrand: "#042F2E",
-  brandPrimary: "#2DD4BF",
-  onBrandPrimary: "#042F2E",
-  brandSecondary: "#134E4A",
-  onBrandSecondary: "#CCFBF1",
-  brandTertiary: "#1E293B",
-  onBrandTertiary: "#CBD5E1",
+  brand: "#8FA2FF",
+  onBrand: "#0D1330",
+  brandPrimary: "#8FA2FF",
+  onBrandPrimary: "#0D1330",
+  brandSecondary: "#26337A",
+  onBrandSecondary: "#DDE3FB",
+  brandTertiary: "#1F2958",
+  onBrandTertiary: "#C3CBE6",
+  margin: "#FF6B7D",
 
-  success: "#22C55E",
+  success: "#4ADE80",
   onSuccess: "#052E16",
-  warning: "#F59E0B",
+  warning: "#FBBF24",
   onWarning: "#1F1203",
-  error: "#F87171",
+  error: "#FF6B7D",
   onError: "#2A0A0A",
-  info: "#38BDF8",
+  info: "#7CC4F5",
   onInfo: "#082F49",
 
-  border: "#1F2937",
-  borderStrong: "#374151",
-  divider: "#1F2937",
+  border: "#263066",
+  borderStrong: "#3A4685",
+  divider: "#1F2958",
 };
 
 export type ThemeColors = typeof light;
 
-export const themes: { light: ThemeColors; dark: ThemeColors } = { light, dark };
-export const defaultScheme: ColorScheme = "light";
+const themes: { light: ThemeColors; dark: ThemeColors } = { light, dark };
 
 // ---------- Theme context (manual override + system) ----------
 type Preference = "system" | ColorScheme;
@@ -85,8 +87,6 @@ type Preference = "system" | ColorScheme;
 interface ThemeCtx {
   scheme: ColorScheme;
   colors: ThemeColors;
-  preference: Preference;
-  setPreference: (p: Preference) => void;
   toggle: () => void;
 }
 
@@ -120,18 +120,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     () => ({
       scheme,
       colors: themes[scheme],
-      preference,
-      setPreference: (p) => {
-        setPrefState(p);
-        AsyncStorage.setItem(STORAGE_KEY, p).catch(() => {});
-      },
       toggle: () => {
         const next: Preference = scheme === "dark" ? "light" : "dark";
         setPrefState(next);
         AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
       },
     }),
-    [scheme, preference],
+    [scheme],
   );
 
   return createElement(Ctx.Provider, { value }, children);
@@ -144,15 +139,9 @@ export function useTheme(): ThemeCtx {
   return {
     scheme: "light",
     colors: light,
-    preference: "system",
-    setPreference: () => {},
     toggle: () => {},
   };
 }
-
-// Deprecated static export kept for backwards compat (points to light defaults).
-// Prefer useTheme().colors or makeStyles((colors) => ...).
-export const colors = light;
 
 // Themed StyleSheet factory: returns a hook that rebuilds the sheet when the scheme changes.
 export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
@@ -173,17 +162,20 @@ export const categoryColors = {
 } as const;
 
 export const budgetPalette = {
-  card: "#0B1220",
-  cardBorder: "#1E293B",
-  text: "#F9FAFB",
-  muted: "#94A3B8",
-  track: "#1E3A8A",
-  budget: "#3B82F6",
-  spent: "#22D3EE",
-  over: "#F87171",
-  ok: "#34D399",
-  warn: "#FBBF24",
+  card: "#141B34",
+  cardBorder: "#26305A",
+  text: "#FFFFFF",
+  muted: "#A3ADCF",
+  track: "#26337A",
+  budget: "#7D93FF",
+  spent: "#FFC24B",
+  over: "#FF6B7D",
+  ok: "#4ADE80",
+  warn: "#FF9F43",
 };
+
+// Titres et montants : Archivo extra-grasse (chargee au demarrage dans app/_layout.tsx)
+export const fonts = { display: "Archivo_800ExtraBold", black: "Archivo_900Black" };
 
 export const childDefaultColors = { A: "#3B82F6", B: "#10B981", C: "#F59E0B", D: "#EF4444", E: "#8B5CF6" };
 export const childColorChoices = [
