@@ -19,7 +19,7 @@
       "package": "fr.soseduc.caresync",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0F766E"
+        "backgroundColor": "#2340C8"
       },
       "allowBackup": false,
       "permissions": [
@@ -51,7 +51,7 @@
           "image": "./assets/images/splash-image.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#0F766E"
+          "backgroundColor": "#2340C8"
         }
       ],
       "expo-font",
@@ -69,7 +69,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#0F766E"
+          "color": "#2340C8"
         }
       ],
       [

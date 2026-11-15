@@ -43,7 +43,7 @@ const manifest = {
   display: "standalone",
   orientation: "portrait",
   background_color: "#F9FAFB",
-  theme_color: "#0F766E",
+  theme_color: "#2340C8",
   icons: [
     { src: `${base}/icons/icon-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
     { src: `${base}/icons/icon-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
@@ -64,7 +64,7 @@ html = html.replace(
 html = html.replace(/<link rel="icon"[^>]*\/?>/, "");
 const head = `
     <meta name="description" content="${manifest.description}" />
-    <meta name="theme-color" content="#0F766E" />
+    <meta name="theme-color" content="#2340C8" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

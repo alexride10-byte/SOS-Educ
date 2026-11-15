@@ -95,3 +95,10 @@ plus tard, il suffit de wrapper ces repos sans toucher aux ecrans.
 - Empreinte / visage / code du telephone (expo-local-authentication), active dans « Donnees et confidentialite »
 - Aucun code stocke par l'appli, aucun compte ni serveur (chaque educateur a son telephone)
 - Verrouille a l'ouverture et apres 1 min en arriere-plan ; contenu conserve sous l'ecran de verrouillage
+
+## Refonte visuelle (nov. 2026)
+- Palette "cahier" : bleu encre #2340C8, papier bleute #EEF1F8, rouge de marge #E2384D (depassement), theme sombre bleu nuit
+- Police Archivo (800/900) pour titres et montants, police systeme pour le reste
+- Accueil : budget de la session en "ticket de caisse" (bord dentele, reste a depenser, bouton Ajouter un ticket),
+  animation d'impression une fois par ouverture (desactivee si animations reduites) ; cartes "Modules" retirees
+- Icones, ecran de demarrage, PDF et manifeste web passes au bleu encre

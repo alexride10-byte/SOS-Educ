@@ -22,7 +22,7 @@ import { pendingTasks, setTaskStatus } from "@/src/lib/tasks";
 import { useChildColors } from "@/src/lib/child-colors";
 import { ChildBadge, ChildLegend } from "@/src/components/child-legend";
 import { TaskForm, TaskRow } from "@/src/components/tasks";
-import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import {
   AgendaEvent,
   CHILD_CODES,
@@ -466,7 +466,7 @@ function EventForm(props: {
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  title: { fontSize: 24, fontWeight: "700", color: colors.onSurface },
+  title: { fontFamily: fonts.display, fontSize: 30, letterSpacing: -0.5, color: colors.onSurface },
   subtitle: { fontSize: 13, color: colors.muted, marginTop: 2 },
   filterInfo: {
     marginHorizontal: spacing.lg,

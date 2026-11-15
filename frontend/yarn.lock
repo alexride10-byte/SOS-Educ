@@ -799,6 +799,11 @@
     "@eslint/core" "^0.15.1"
     levn "^0.4.1"
 
+"@expo-google-fonts/archivo@0.4.2":
+  version "0.4.2"
+  resolved "https://registry.yarnpkg.com/@expo-google-fonts/archivo/-/archivo-0.4.2.tgz#e64ff92c11c00d829d80652a18630970946bec7c"
+  integrity sha512-FLhI4/ZVIFSHHxx15Z7Rr4QX/4ZrJozEebBEFSdHSRRwULGCuSIpbb3dz56Hslux6LZEnJ1mVpZ6CyVpUzLwIg==
+
 "@expo-google-fonts/material-symbols@^0.4.1":
   version "0.4.52"
   resolved "https://registry.yarnpkg.com/@expo-google-fonts/material-symbols/-/material-symbols-0.4.52.tgz#ae3475989e78dd542e7bbdb254fd4371004327e5"

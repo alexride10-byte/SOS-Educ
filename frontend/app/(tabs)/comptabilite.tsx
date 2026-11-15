@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image } from "expo-image";
 import {
@@ -25,7 +25,7 @@ import { AddMoneySheet } from "@/src/components/add-money-sheet";
 import { CloseSessionSheet } from "@/src/components/close-session-sheet";
 import { NewSessionSheet } from "@/src/components/new-session-sheet";
 import { CropModal } from "@/src/components/crop-modal";
-import { categoryColors, makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { categoryColors, fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { BudgetDashboard } from "@/src/components/budget-dashboard";
 import { BudgetSheet } from "@/src/components/budget-sheet";
 import { localIso, parseLocal } from "@/src/lib/time";
@@ -58,11 +58,19 @@ export default function Comptabilite() {
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [showClose, setShowClose] = useState(false);
   const [showNewSession, setShowNewSession] = useState(false);
-  const params = useLocalSearchParams<{ session?: string }>();
+  const params = useLocalSearchParams<{ session?: string; add?: string }>();
 
   useEffect(() => {
     if (params.session) setCurrentSessionId(params.session);
   }, [params.session]);
+
+  // "Ajouter un ticket" depuis l'accueil : ouvre directement le formulaire
+  useEffect(() => {
+    if (params.add !== "1") return;
+    setEditing(null);
+    setShowForm(true);
+    router.setParams({ add: undefined });
+  }, [params.add]);
 
   const reload = useCallback(async () => {
     const [s, e] = await Promise.all([sessionsRepo.list(), expensesRepo.list()]);
@@ -576,7 +584,7 @@ function PhotoThumb({ uri }: { uri: string }) {
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  title: { fontSize: 24, fontWeight: "700", color: colors.onSurface },
+  title: { fontFamily: fonts.display, fontSize: 30, letterSpacing: -0.5, color: colors.onSurface },
   subtitle: { fontSize: 13, color: colors.muted, marginTop: 2 },
   chip: {
     height: 36,

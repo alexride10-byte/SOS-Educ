@@ -4,6 +4,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
+import { Archivo_800ExtraBold } from "@expo-google-fonts/archivo/800ExtraBold";
+import { Archivo_900Black } from "@expo-google-fonts/archivo/900Black";
 
 import { ErrorBoundary } from "@/src/components/error-boundary";
 import { seedIfNeeded } from "@/src/lib/seed";
@@ -35,7 +38,9 @@ function ThemedStack({ ready }: { ready: boolean }) {
 }
 
 export default function RootLayout() {
-  const [ready, setReady] = useState(false);
+  const [dataReady, setReady] = useState(false);
+  const [fontsLoaded, fontError] = useFonts({ Archivo_800ExtraBold, Archivo_900Black });
+  const ready = dataReady && (fontsLoaded || !!fontError);
   useEffect(() => {
     setupNotifications();
     seedIfNeeded()

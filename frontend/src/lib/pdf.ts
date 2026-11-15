@@ -90,13 +90,13 @@ export async function exportSessionPdf(session: Session, expenses: Expense[]) {
     <style>
       body { font-family: -apple-system, Helvetica, Arial, sans-serif; color:#111827; padding:24px; }
       h1 { font-size:22px; margin:0 0 4px; }
-      h2 { font-size:16px; margin:24px 0 8px; color:#0F766E; }
+      h2 { font-size:16px; margin:24px 0 8px; color:#2340C8; }
       .muted { color:#6B7280; font-size:12px; }
       table { width:100%; border-collapse: collapse; margin-top:8px; font-size:12px; }
       th, td { padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:left; }
       th { background:#F3F4F6; }
       .total { font-size:16px; font-weight:600; margin-top:12px; }
-      .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#CCFBF1; color:#0F766E; font-size:12px; }
+      .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#DDE3FB; color:#2340C8; font-size:12px; }
     </style>
   </head>
   <body>
