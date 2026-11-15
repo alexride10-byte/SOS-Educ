@@ -82,6 +82,12 @@
           }
         }
       ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Déverrouiller CareSync avec Face ID"
+        }
+      ],
       "./plugins/with-release-signing"
     ],
     "experiments": {

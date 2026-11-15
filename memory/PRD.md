@@ -90,3 +90,8 @@ plus tard, il suffit de wrapper ces repos sans toucher aux ecrans.
   (les donnees de demo sont creees en une fois par src/lib/seed.ts), 12 dependances inutilisees
   (dont react-native-webview, react-query, keyboard-controller, secure-store)
 - Factorises : depots de stockage (repo generique), identifiants (src/lib/id.ts), champ de saisie (src/components/field.tsx)
+
+## Verrouillage (nov. 2026)
+- Empreinte / visage / code du telephone (expo-local-authentication), active dans « Donnees et confidentialite »
+- Aucun code stocke par l'appli, aucun compte ni serveur (chaque educateur a son telephone)
+- Verrouille a l'ouverture et apres 1 min en arriere-plan ; contenu conserve sous l'ecran de verrouillage

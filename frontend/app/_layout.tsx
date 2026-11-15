@@ -7,6 +7,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { ErrorBoundary } from "@/src/components/error-boundary";
 import { seedIfNeeded } from "@/src/lib/seed";
+import { AppLockProvider } from "@/src/lib/app-lock";
 import { ChildColorsProvider } from "@/src/lib/child-colors";
 import { setupNotifications } from "@/src/lib/notifications";
 import { NotificationActions } from "@/src/lib/notification-actions";
@@ -47,9 +48,11 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <ThemeProvider>
-            <ChildColorsProvider>
-              <ThemedStack ready={ready} />
-            </ChildColorsProvider>
+            <AppLockProvider>
+              <ChildColorsProvider>
+                <ThemedStack ready={ready} />
+              </ChildColorsProvider>
+            </AppLockProvider>
           </ThemeProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>

@@ -1,11 +1,12 @@
 // Donnees et confidentialite (RGPD) : ou sont les donnees, bonnes pratiques, sauvegarde, effacement.
 import { useRouter } from "expo-router";
 import { useState, type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@react-native-vector-icons/ionicons";
 
 import { eraseAllData, exportBackup, pickBackupFile, restoreBackup } from "@/src/lib/backup";
+import { authenticate, lockAvailable, lockSupported, useAppLock } from "@/src/lib/app-lock";
 import { confirmAction } from "@/src/lib/confirm";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
@@ -31,6 +32,17 @@ export default function Confidentialite() {
       setBusy(null);
     }
   };
+
+  const lock = useAppLock();
+  const onToggleLock = (on: boolean) =>
+    run("lock", async () => {
+      if (on && !(await lockAvailable())) {
+        throw new Error("Configurez d’abord un code, un schéma ou une empreinte dans les réglages du téléphone.");
+      }
+      if (!(await authenticate(on ? "Activer le verrouillage" : "Désactiver le verrouillage"))) return null;
+      await lock.setEnabled(on);
+      return on ? "Verrouillage activé : l’appli demandera votre empreinte ou votre code." : "Verrouillage désactivé.";
+    });
 
   const onExport = () =>
     run("export", async () => ((await exportBackup()) ? "Sauvegarde créée. Rangez-la dans un endroit sûr." : null));
@@ -74,6 +86,21 @@ export default function Confidentialite() {
           <P>La lecture des tickets se fait sur l’appareil : la photo n’est envoyée à personne.</P>
           {!isWeb && <P>L’appli n’a même pas l’autorisation d’accéder à Internet : elle ne peut rien envoyer.</P>}
         </Section>
+
+        {lockSupported && (
+          <Section icon="finger-print-outline" title="Verrouillage de l’appli">
+            <View style={styles.switchRow}>
+              <P>Demander l’empreinte, le visage ou le code du téléphone à l’ouverture, et après une minute d’absence.</P>
+              <Switch
+                value={lock.enabled}
+                onValueChange={onToggleLock}
+                disabled={busy === "lock"}
+                trackColor={{ true: colors.brandPrimary, false: colors.border }}
+                testID="lock-switch"
+              />
+            </View>
+          </Section>
+        )}
 
         <Section icon="list-outline" title="Ce qui est enregistré">
           <P>• Dépenses : date, enseigne, montant, motif, mode de paiement (ESP / CB), commentaire, photo du ticket.</P>
@@ -170,6 +197,7 @@ const useStyles = makeStyles((colors) => ({
   cardHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
   cardTitle: { fontSize: 15, fontWeight: "700", color: colors.onSurface, flexShrink: 1 },
   p: { fontSize: 14, lineHeight: 20, color: colors.onSurfaceSecondary, marginTop: 4 },
+  switchRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingRight: spacing.xl },
   message: { fontSize: 14, fontWeight: "600", marginBottom: spacing.md },
   action: {
     flexDirection: "row",
